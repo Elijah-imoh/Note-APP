@@ -1,0 +1,6 @@
+{
+  "name": "My Notes",
+  "description": "A calm, tactile, and intentionally designed note-taking application to capture, organize, listen to, and protect your thoughts.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

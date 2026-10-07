@@ -1,0 +1,170 @@
+{
+  "entities": {
+    "Note": {
+      "title": "Note",
+      "description": "A user's personal note supporting rich text, checklists, voice transcripts, reminders, color tints, and PIN lock protection.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier matching the document ID."
+        },
+        "userId": {
+          "type": "string",
+          "description": "UID of the authenticated note owner."
+        },
+        "title": {
+          "type": "string",
+          "description": "Headline title of the note (0 to 300 chars)."
+        },
+        "content": {
+          "type": "string",
+          "description": "Main body text of the note (0 to 50000 chars)."
+        },
+        "folderId": {
+          "type": "string",
+          "description": "Associated folder ID or empty string for unfiled."
+        },
+        "tags": {
+          "type": "array",
+          "description": "Bounded list of up to 10 string tags."
+        },
+        "checklistItems": {
+          "type": "array",
+          "description": "Bounded list of up to 50 checklist item strings formatted with [x] or [ ] prefix."
+        },
+        "isPinned": {
+          "type": "boolean",
+          "description": "Whether the note is pinned to the top of the list."
+        },
+        "isArchived": {
+          "type": "boolean",
+          "description": "Whether the note is archived."
+        },
+        "isTrashed": {
+          "type": "boolean",
+          "description": "Whether the note is in the trash."
+        },
+        "isLocked": {
+          "type": "boolean",
+          "description": "Whether the note is protected by the user's privacy lock."
+        },
+        "colorKey": {
+          "type": "string",
+          "description": "Editorial surface tint key for the note card."
+        },
+        "voiceTranscript": {
+          "type": "string",
+          "description": "Captured voice note dictation transcript."
+        },
+        "voiceDurationSec": {
+          "type": "integer",
+          "description": "Duration of the captured voice memo in seconds."
+        },
+        "reminderAtMillis": {
+          "type": "integer",
+          "description": "Scheduled reminder epoch milliseconds, or 0 if unset."
+        },
+        "wordCount": {
+          "type": "integer",
+          "description": "Computed word count for quick reading-time estimation."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when the note was created (must use FieldValue.serverTimestamp())."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when the note was last modified (must use FieldValue.serverTimestamp())."
+        }
+      },
+      "required": [
+        "id",
+        "userId",
+        "title",
+        "content",
+        "folderId",
+        "tags",
+        "checklistItems",
+        "isPinned",
+        "isArchived",
+        "isTrashed",
+        "isLocked",
+        "colorKey",
+        "voiceTranscript",
+        "voiceDurationSec",
+        "reminderAtMillis",
+        "wordCount",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "Folder": {
+      "title": "Folder",
+      "description": "A user-defined collection folder for organizing notes.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier matching the folder document ID."
+        },
+        "userId": {
+          "type": "string",
+          "description": "UID of the authenticated folder owner."
+        },
+        "name": {
+          "type": "string",
+          "description": "Display name of the folder (1 to 80 chars)."
+        },
+        "iconKey": {
+          "type": "string",
+          "description": "Icon identifier for the folder."
+        },
+        "accentKey": {
+          "type": "string",
+          "description": "Accent color identifier for the folder."
+        },
+        "sortOrder": {
+          "type": "integer",
+          "description": "Display sort order index."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when the folder was created (must use FieldValue.serverTimestamp())."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when the folder was last updated (must use FieldValue.serverTimestamp())."
+        }
+      },
+      "required": [
+        "id",
+        "userId",
+        "name",
+        "iconKey",
+        "accentKey",
+        "sortOrder",
+        "createdAt",
+        "updatedAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/users/{userId}/notes/{noteId}": {
+      "schema": {
+        "$ref": "#/entities/Note"
+      },
+      "description": "Per-user notes collection isolated by userId."
+    },
+    "/users/{userId}/folders/{folderId}": {
+      "schema": {
+        "$ref": "#/entities/Folder"
+      },
+      "description": "Per-user folders collection isolated by userId."
+    }
+  }
+}
