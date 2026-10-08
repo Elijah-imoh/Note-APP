@@ -17,13 +17,13 @@ private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(na
 
 enum class ThemeMode(val label: String) {
     SYSTEM("System Default"),
-    LIGHT("Warm Paper (Light)"),
-    DARK("Obsidian Ink (Dark)")
+    LIGHT("Pure Paper (White)"),
+    DARK("Pure Obsidian (Black)")
 }
 
 data class UserPreferences(
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
-    val layoutStyle: NoteLayoutStyle = NoteLayoutStyle.MASONRY_GRID,
+    val layoutStyle: NoteLayoutStyle = NoteLayoutStyle.COMFORTABLE_LIST,
     val sortOrder: NoteSortOrder = NoteSortOrder.UPDATED_DESC,
     val fontScaleMultiplier: Float = 1.0f,
     val lockPinCode: String = "",
@@ -50,7 +50,7 @@ class UserPreferencesRepository(private val context: Context) {
 
         val layout = prefs[Keys.LAYOUT_STYLE]?.let {
             runCatching { NoteLayoutStyle.valueOf(it) }.getOrNull()
-        } ?: NoteLayoutStyle.MASONRY_GRID
+        } ?: NoteLayoutStyle.COMFORTABLE_LIST
 
         val sort = prefs[Keys.SORT_ORDER]?.let {
             runCatching { NoteSortOrder.valueOf(it) }.getOrNull()

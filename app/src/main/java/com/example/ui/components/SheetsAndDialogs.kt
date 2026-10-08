@@ -5,11 +5,6 @@ import android.content.pm.PackageManager
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -33,20 +28,16 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.VolumeUp
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Mic
-import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.outlined.Alarm
 import androidx.compose.material.icons.outlined.Archive
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.DeleteForever
 import androidx.compose.material.icons.outlined.DeleteOutline
-import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.LockOpen
 import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material.icons.outlined.RestoreFromTrash
 import androidx.compose.material.icons.outlined.Unarchive
-import androidx.compose.material.icons.outlined.VolumeUp
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -62,8 +53,6 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -78,7 +67,6 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import com.example.data.model.Folder
@@ -88,8 +76,6 @@ import com.example.ui.theme.LocalIsDarkTheme
 import com.example.ui.theme.resolveColors
 import com.example.ui.theme.resolveFolderAccentColor
 import com.example.util.NoteReminderNotificationHelper
-import com.example.util.VoiceDictationHelper
-import kotlinx.coroutines.delay
 import java.util.Calendar
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
@@ -136,9 +122,9 @@ fun NoteContextBottomSheet(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Paper Tint Swatches
+            // Paper Tone Swatches
             Text(
-                text = "PAPER TINT",
+                text = "PAPER TONE",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -326,261 +312,6 @@ private fun ContextMenuActionRow(
             color = contentColor,
             fontWeight = FontWeight.Medium
         )
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun VoiceDictationBottomSheet(
-    initialTranscript: String,
-    initialDurationSec: Long,
-    onDismiss: () -> Unit,
-    onSaveVoiceCapture: (transcript: String, durationSec: Long, appendToBody: Boolean) -> Unit
-) {
-    val context = LocalContext.current
-    var transcriptText by remember { mutableStateOf(initialTranscript) }
-    var partialText by remember { mutableStateOf("") }
-    var isListening by remember { mutableStateOf(false) }
-    var elapsedSeconds by remember { mutableLongStateOf(initialDurationSec) }
-    var statusMessage by remember {
-        mutableStateOf("Tap the microphone to dictate hands-free, or refine the transcript below.")
-    }
-
-    val dictationHelper = remember(context) {
-        VoiceDictationHelper(
-            context = context,
-            onPartialResult = { partial ->
-                partialText = partial
-            },
-            onFinalResult = { finalResult ->
-                partialText = ""
-                transcriptText = if (transcriptText.isBlank()) {
-                    finalResult
-                } else {
-                    "$transcriptText $finalResult"
-                }
-                statusMessage = "Captured speech. Tap microphone to continue or save below."
-            },
-            onError = { err ->
-                statusMessage = err
-            },
-            onListeningStateChanged = { listening ->
-                isListening = listening
-                if (listening) {
-                    statusMessage = "Listening… Speak naturally."
-                }
-            }
-        )
-    }
-
-    DisposableEffect(Unit) {
-        onDispose {
-            dictationHelper.destroy()
-        }
-    }
-
-    LaunchedEffect(isListening) {
-        while (isListening) {
-            delay(1000L)
-            elapsedSeconds += 1L
-        }
-    }
-
-    val audioPermissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission()
-    ) { granted ->
-        if (granted) {
-            dictationHelper.startListening()
-        } else {
-            statusMessage = "Microphone permission was declined. You can still type a voice memo transcript below."
-        }
-    }
-
-    ModalBottomSheet(
-        onDismissRequest = {
-            dictationHelper.stopListening()
-            onDismiss()
-        },
-        containerColor = MaterialTheme.colorScheme.surfaceContainer,
-        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .navigationBarsPadding()
-                .padding(horizontal = 24.dp, vertical = 12.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Text(
-                text = "Voice Capture & Dictation",
-                style = MaterialTheme.typography.headlineSmall,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = statusMessage,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Animated Tactile Waveform & Timer Pill
-            Surface(
-                shape = RoundedCornerShape(16.dp),
-                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    WaveformVisualizer(isAnimating = isListening)
-                    Spacer(modifier = Modifier.height(10.dp))
-                    Text(
-                        text = String.format("%02d:%02d", elapsedSeconds / 60, elapsedSeconds % 60),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = if (isListening) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Microphone Record / Stop Button
-            Button(
-                onClick = {
-                    if (isListening) {
-                        dictationHelper.stopListening()
-                    } else {
-                        val hasPermission = ContextCompat.checkSelfPermission(
-                            context,
-                            Manifest.permission.RECORD_AUDIO
-                        ) == PackageManager.PERMISSION_GRANTED
-                        if (hasPermission) {
-                            dictationHelper.startListening()
-                        } else {
-                            audioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
-                        }
-                    }
-                },
-                shape = CircleShape,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = if (isListening) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
-                ),
-                modifier = Modifier
-                    .size(64.dp)
-                    .testTag("voice_record_toggle_button")
-            ) {
-                Icon(
-                    imageVector = if (isListening) Icons.Filled.Stop else Icons.Filled.Mic,
-                    contentDescription = if (isListening) "Stop listening" else "Start voice dictation",
-                    modifier = Modifier.size(28.dp)
-                )
-            }
-
-            if (partialText.isNotBlank()) {
-                Spacer(modifier = Modifier.height(10.dp))
-                Text(
-                    text = "“$partialText…”",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.primary
-                )
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            OutlinedTextField(
-                value = transcriptText,
-                onValueChange = {
-                    transcriptText = it
-                    if (elapsedSeconds == 0L && it.isNotBlank()) {
-                        elapsedSeconds = (it.split(Regex("\\s+")).size * 2L).coerceAtLeast(3L)
-                    }
-                },
-                label = { Text("Voice Transcript") },
-                placeholder = { Text("Spoken words appear here…") },
-                minLines = 3,
-                maxLines = 5,
-                shape = RoundedCornerShape(14.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .testTag("voice_transcript_input")
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                OutlinedButton(
-                    onClick = {
-                        dictationHelper.stopListening()
-                        onSaveVoiceCapture(transcriptText.trim(), elapsedSeconds, false)
-                        onDismiss()
-                    },
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Text("Attach Audio Memo")
-                }
-
-                Button(
-                    onClick = {
-                        dictationHelper.stopListening()
-                        onSaveVoiceCapture(transcriptText.trim(), elapsedSeconds, true)
-                        onDismiss()
-                    },
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier
-                        .weight(1f)
-                        .testTag("save_voice_to_body_button")
-                ) {
-                    Text("Insert into Note")
-                }
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-        }
-    }
-}
-
-@Composable
-private fun WaveformVisualizer(isAnimating: Boolean) {
-    val transition = rememberInfiniteTransition(label = "waveform")
-    val phase by transition.animateFloat(
-        initialValue = 0.25f,
-        targetValue = 1.0f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 520),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "wave_phase"
-    )
-    val baseHeights = listOf(10, 18, 28, 16, 34, 24, 38, 20, 30, 16, 26, 14)
-
-    Row(
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier.height(42.dp)
-    ) {
-        baseHeights.forEachIndexed { index, h ->
-            val factor = if (!isAnimating) 0.35f else {
-                if (index % 2 == 0) phase else (1.25f - phase).coerceIn(0.3f, 1.0f)
-            }
-            Box(
-                modifier = Modifier
-                    .width(4.dp)
-                    .height((h * factor).dp)
-                    .clip(CircleShape)
-                    .background(
-                        if (isAnimating) MaterialTheme.colorScheme.primary
-                        else MaterialTheme.colorScheme.outline
-                    )
-            )
-        }
     }
 }
 
@@ -823,17 +554,16 @@ fun FolderEditorDialog(
     val isDark = LocalIsDarkTheme.current
     var name by remember { mutableStateOf(initialFolder?.name ?: "") }
     var selectedIcon by remember { mutableStateOf(initialFolder?.iconKey ?: "book") }
-    var selectedAccent by remember { mutableStateOf(initialFolder?.accentKey ?: "terracotta") }
+    var selectedAccent by remember { mutableStateOf(initialFolder?.accentKey ?: "ink_100") }
 
     val iconOptions = listOf(
         "book" to "Book",
         "work" to "Studio",
         "ideas" to "Ideas",
         "journal" to "Journal",
-        "bookmark" to "Saved",
-        "voice" to "Audio"
+        "bookmark" to "Saved"
     )
-    val accentOptions = listOf("terracotta", "sage", "ochre", "slate", "plum")
+    val accentOptions = listOf("ink_100", "ink_80", "ink_60", "ink_40", "ink_20")
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -886,7 +616,7 @@ fun FolderEditorDialog(
 
                 Spacer(modifier = Modifier.height(14.dp))
                 Text(
-                    text = "ACCENT COLOR",
+                    text = "MONOCHROME TONE",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

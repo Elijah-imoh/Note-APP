@@ -9,16 +9,15 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
@@ -28,47 +27,31 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
 import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
-import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridItemSpan
 import androidx.compose.foundation.lazy.staggeredgrid.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.Sort
+import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Folder
-import androidx.compose.material.icons.filled.GraphicEq
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.outlined.AutoStories
-import androidx.compose.material.icons.outlined.CheckBox
+import androidx.compose.material.icons.outlined.BarChart
+import androidx.compose.material.icons.outlined.ChatBubbleOutline
 import androidx.compose.material.icons.outlined.DeleteSweep
-import androidx.compose.material.icons.outlined.Folder
-import androidx.compose.material.icons.outlined.GraphicEq
-import androidx.compose.material.icons.outlined.GridView
-import androidx.compose.material.icons.outlined.MicNone
-import androidx.compose.material.icons.outlined.Settings
-import androidx.compose.material.icons.outlined.Sort
-import androidx.compose.material.icons.outlined.ViewAgenda
-import androidx.compose.material.icons.outlined.ViewHeadline
+import androidx.compose.material.icons.outlined.Headphones
+import androidx.compose.material.icons.outlined.Public
+import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.NavigationRail
-import androidx.compose.material3.NavigationRailItem
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -83,36 +66,37 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
-import androidx.credentials.CredentialManager
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.R
 import com.example.data.model.Folder
 import com.example.data.model.Note
 import com.example.data.model.NoteLayoutStyle
-import com.example.data.model.NoteSortOrder
 import com.example.data.model.NoteWorkspaceFilter
-import com.example.ui.auth.signOut
 import com.example.ui.components.ConfirmPermanentDeleteDialog
 import com.example.ui.components.EditorialEmptyState
 import com.example.ui.components.FolderEditorDialog
 import com.example.ui.components.NoteContextBottomSheet
 import com.example.ui.components.PasscodeLockDialog
 import com.example.ui.components.SwipeableNoteItem
-import com.example.ui.components.resolveFolderIcon
+import com.example.ui.theme.LocalIsDarkTheme
 import com.example.ui.viewmodel.NotesViewModel
 import com.example.ui.viewmodel.UiState
 import com.example.util.NoteTextToSpeechManager
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Locale
 
 enum class PrimaryStudioTab(val labelRes: Int) {
     NOTES(R.string.nav_notes),
@@ -123,18 +107,14 @@ enum class PrimaryStudioTab(val labelRes: Int) {
 
 private data class EditorSessionState(
     val note: Note?,
-    val startWithChecklist: Boolean = false,
-    val startWithVoice: Boolean = false
+    val startWithChecklist: Boolean = false
 )
 
 @Composable
 fun MainWorkspaceScreen(
-    viewModel: NotesViewModel,
-    userEmail: String?
+    viewModel: NotesViewModel
 ) {
     val context = LocalContext.current
-    val scope = rememberCoroutineScope()
-    val credentialManager = remember(context) { CredentialManager.create(context) }
     val ttsManager = remember(context) { NoteTextToSpeechManager(context) }
 
     DisposableEffect(ttsManager) {
@@ -145,7 +125,6 @@ fun MainWorkspaceScreen(
     val foldersUiState by viewModel.foldersState.collectAsStateWithLifecycle()
     val filteredNotes by viewModel.filteredNotes.collectAsStateWithLifecycle()
     val filterState by viewModel.filterState.collectAsStateWithLifecycle()
-    val availableTags by viewModel.availableTags.collectAsStateWithLifecycle()
     val preferences by viewModel.userPreferences.collectAsStateWithLifecycle()
     val unlockedNoteIds by viewModel.unlockedNoteIds.collectAsStateWithLifecycle()
     val lastTrashedNote by viewModel.lastTrashedNote.collectAsStateWithLifecycle()
@@ -168,7 +147,6 @@ fun MainWorkspaceScreen(
 
     val snackbarHostState = remember { SnackbarHostState() }
 
-    // Undo Snackbar when a note is moved to Trash
     LaunchedEffect(lastTrashedNote) {
         val trashed = lastTrashedNote ?: return@LaunchedEffect
         val result = snackbarHostState.showSnackbar(
@@ -194,7 +172,7 @@ fun MainWorkspaceScreen(
             ttsManager.stop()
         } else {
             val checklistSpoken = note.parsedChecklist.joinToString(". ") { it.text }
-            val fullText = listOf(note.title, note.content, checklistSpoken, note.voiceTranscript)
+            val fullText = listOf(note.title, note.content, checklistSpoken)
                 .filter { it.isNotBlank() }
                 .joinToString(". ")
             ttsManager.speak(
@@ -217,7 +195,6 @@ fun MainWorkspaceScreen(
         }
     }
 
-    // Full-screen Note Editor when active
     val editorSession = activeEditorSession
     if (editorSession != null) {
         val liveNote = editorSession.note?.let { existing ->
@@ -227,7 +204,6 @@ fun MainWorkspaceScreen(
             initialNote = liveNote,
             folders = allFolders,
             startWithChecklist = editorSession.startWithChecklist,
-            startWithVoiceSheet = editorSession.startWithVoice,
             isSpeakingThisNote = isSpeaking && speakingNoteId == (liveNote?.id ?: "new_note"),
             onToggleReadAloud = { textToSpeak ->
                 ttsManager.speak(
@@ -241,7 +217,7 @@ fun MainWorkspaceScreen(
                 isSettingNewPinInDialog = false
                 passcodeDialogAction = onVerified
             },
-            onSaveAndClose = { title, content, folderId, tags, checklist, isPinned, isArchived, isLocked, colorKey, voiceTranscript, voiceDurationSec, reminderAtMillis ->
+            onSaveAndClose = { title, content, folderId, tags, checklist, isPinned, isArchived, isLocked, colorKey, reminderAtMillis ->
                 viewModel.saveNote(
                     existingNote = liveNote,
                     title = title,
@@ -253,8 +229,6 @@ fun MainWorkspaceScreen(
                     isArchived = isArchived,
                     isLocked = isLocked,
                     colorKey = colorKey,
-                    voiceTranscript = voiceTranscript,
-                    voiceDurationSec = voiceDurationSec,
                     reminderAtMillis = reminderAtMillis
                 )
                 activeEditorSession = null
@@ -264,251 +238,133 @@ fun MainWorkspaceScreen(
             }
         )
     } else {
-        // Adaptive Workspace Layout (NavigationBar on handheld, NavigationRail on expanded tablets)
-        BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-            val isExpandedScreen = maxWidth >= 700.dp
-
-            Scaffold(
-                contentWindowInsets = WindowInsets.safeDrawing,
-                snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
-                floatingActionButton = {
-                    if (currentTab == PrimaryStudioTab.NOTES) {
-                        Column(
-                            horizontalAlignment = Alignment.End,
-                            verticalArrangement = Arrangement.spacedBy(10.dp)
-                        ) {
-                            // Quick Voice Note mini FAB
-                            SmallFloatingActionButton(
-                                onClick = {
-                                    activeEditorSession = EditorSessionState(
-                                        note = null,
-                                        startWithVoice = true
-                                    )
-                                },
-                                containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                                contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                                shape = RoundedCornerShape(14.dp),
-                                modifier = Modifier.testTag("fab_quick_voice_note")
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Outlined.MicNone,
-                                    contentDescription = stringResource(R.string.action_new_voice_note)
-                                )
-                            }
-
-                            // Primary Editorial New Note FAB
-                            ExtendedFloatingActionButton(
-                                onClick = {
-                                    activeEditorSession = EditorSessionState(note = null)
-                                },
-                                containerColor = MaterialTheme.colorScheme.primary,
-                                contentColor = MaterialTheme.colorScheme.onPrimary,
-                                shape = RoundedCornerShape(18.dp),
-                                icon = {
-                                    Icon(
-                                        imageVector = Icons.Filled.Add,
-                                        contentDescription = null
-                                    )
-                                },
-                                text = {
-                                    Text(
-                                        text = stringResource(R.string.action_new_note),
-                                        style = MaterialTheme.typography.titleSmall,
-                                        fontWeight = FontWeight.SemiBold
-                                    )
-                                },
-                                modifier = Modifier.testTag("fab_new_note")
-                            )
+        Scaffold(
+            contentWindowInsets = WindowInsets.safeDrawing,
+            containerColor = MaterialTheme.colorScheme.background,
+            snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
+            bottomBar = {
+                MinimalFloatingDock(
+                    currentTab = currentTab,
+                    isChecklistFilterActive = filterState.workspaceFilter == NoteWorkspaceFilter.CHECKLISTS,
+                    onSelectTab = { tab ->
+                        if (tab == PrimaryStudioTab.NOTES) {
+                            viewModel.selectWorkspaceFilter(NoteWorkspaceFilter.ALL)
                         }
-                    }
-                },
-                bottomBar = {
-                    if (!isExpandedScreen) {
-                        NavigationBar(
-                            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-                            tonalElevation = 0.dp
-                        ) {
-                            PrimaryStudioTab.entries.forEach { tab ->
-                                val selected = currentTab == tab
-                                NavigationBarItem(
-                                    selected = selected,
-                                    onClick = { currentTab = tab },
-                                    icon = {
-                                        Icon(
-                                            imageVector = when (tab) {
-                                                PrimaryStudioTab.NOTES -> Icons.Outlined.AutoStories
-                                                PrimaryStudioTab.FOLDERS -> if (selected) Icons.Filled.Folder else Icons.Outlined.Folder
-                                                PrimaryStudioTab.VOICE -> if (selected) Icons.Filled.GraphicEq else Icons.Outlined.GraphicEq
-                                                PrimaryStudioTab.SETTINGS -> if (selected) Icons.Filled.Settings else Icons.Outlined.Settings
-                                            },
-                                            contentDescription = stringResource(tab.labelRes)
-                                        )
-                                    },
-                                    label = {
-                                        Text(
-                                            text = stringResource(tab.labelRes),
-                                            style = MaterialTheme.typography.labelMedium
-                                        )
-                                    },
-                                    modifier = Modifier.testTag("nav_tab_${tab.name.lowercase()}")
-                                )
-                            }
+                        currentTab = tab
+                    },
+                    onNewNoteClick = {
+                        activeEditorSession = EditorSessionState(note = null)
+                    },
+                    onToggleChecklistView = {
+                        currentTab = PrimaryStudioTab.NOTES
+                        val nextFilter = if (filterState.workspaceFilter == NoteWorkspaceFilter.CHECKLISTS) {
+                            NoteWorkspaceFilter.ALL
+                        } else {
+                            NoteWorkspaceFilter.CHECKLISTS
                         }
+                        viewModel.selectWorkspaceFilter(nextFilter)
                     }
-                }
-            ) { innerPadding ->
-                Row(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(innerPadding)
-                ) {
-                    if (isExpandedScreen) {
-                        NavigationRail(
-                            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-                            modifier = Modifier.fillMaxHeight()
-                        ) {
-                            Spacer(modifier = Modifier.height(16.dp))
-                            PrimaryStudioTab.entries.forEach { tab ->
-                                val selected = currentTab == tab
-                                NavigationRailItem(
-                                    selected = selected,
-                                    onClick = { currentTab = tab },
-                                    icon = {
-                                        Icon(
-                                            imageVector = when (tab) {
-                                                PrimaryStudioTab.NOTES -> Icons.Outlined.AutoStories
-                                                PrimaryStudioTab.FOLDERS -> if (selected) Icons.Filled.Folder else Icons.Outlined.Folder
-                                                PrimaryStudioTab.VOICE -> if (selected) Icons.Filled.GraphicEq else Icons.Outlined.GraphicEq
-                                                PrimaryStudioTab.SETTINGS -> if (selected) Icons.Filled.Settings else Icons.Outlined.Settings
-                                            },
-                                            contentDescription = stringResource(tab.labelRes)
-                                        )
-                                    },
-                                    label = { Text(stringResource(tab.labelRes)) }
-                                )
-                            }
+                )
+            }
+        ) { innerPadding ->
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding)
+            ) {
+                when (currentTab) {
+                    PrimaryStudioTab.NOTES -> NotesStreamScreen(
+                        notesUiState = notesUiState,
+                        filteredNotes = filteredNotes,
+                        folders = allFolders,
+                        filterState = filterState,
+                        layoutStyle = preferences.layoutStyle,
+                        unlockedNoteIds = unlockedNoteIds,
+                        isSpeaking = isSpeaking,
+                        speakingNoteId = speakingNoteId,
+                        onSearchQueryChange = viewModel::updateSearchQuery,
+                        onStepMonth = viewModel::stepMonth,
+                        onResetMonth = viewModel::resetMonthFilter,
+                        onSelectWorkspaceFilter = viewModel::selectWorkspaceFilter,
+                        onSelectFolderFilter = viewModel::selectFolderFilter,
+                        onSelectTagFilter = viewModel::selectTagFilter,
+                        onClearFilters = viewModel::clearAllFilters,
+                        onOpenSettings = { currentTab = PrimaryStudioTab.SETTINGS },
+                        onOpenNote = ::openNoteWithLockCheck,
+                        onOpenContextMenu = { contextMenuNote = it },
+                        onTogglePin = viewModel::togglePin,
+                        onMoveToTrash = viewModel::moveToTrash,
+                        onToggleChecklistItem = viewModel::toggleChecklistItemOnCard,
+                        onReadAloud = ::speakNoteHelper,
+                        onCreateBlankNote = {
+                            activeEditorSession = EditorSessionState(note = null)
+                        },
+                        onCreateChecklistNote = {
+                            activeEditorSession = EditorSessionState(
+                                note = null,
+                                startWithChecklist = true
+                            )
+                        },
+                        onEmptyTrashClick = { showEmptyTrashDialog = true }
+                    )
+
+                    PrimaryStudioTab.FOLDERS -> FoldersScreen(
+                        folders = allFolders,
+                        allNotes = allNotes,
+                        onOpenFolderNotes = { folder ->
+                            viewModel.setExplicitFolderFilter(folder.id)
+                            currentTab = PrimaryStudioTab.NOTES
+                        },
+                        onCreateFolderClick = {
+                            folderEditorTarget = true to null
+                        },
+                        onEditFolderClick = { folder ->
+                            folderEditorTarget = true to folder
+                        },
+                        onDeleteFolderClick = { folder ->
+                            viewModel.deleteFolder(folder)
                         }
-                    }
+                    )
 
-                    Box(modifier = Modifier.weight(1f)) {
-                        when (currentTab) {
-                            PrimaryStudioTab.NOTES -> NotesStreamScreen(
-                                notesUiState = notesUiState,
-                                filteredNotes = filteredNotes,
-                                folders = allFolders,
-                                availableTags = availableTags,
-                                filterState = filterState,
-                                layoutStyle = preferences.layoutStyle,
-                                sortOrder = preferences.sortOrder,
-                                unlockedNoteIds = unlockedNoteIds,
-                                isSpeaking = isSpeaking,
-                                speakingNoteId = speakingNoteId,
-                                onSearchQueryChange = viewModel::updateSearchQuery,
-                                onSelectWorkspaceFilter = viewModel::selectWorkspaceFilter,
-                                onSelectFolderFilter = viewModel::selectFolderFilter,
-                                onSelectTagFilter = viewModel::selectTagFilter,
-                                onClearFilters = viewModel::clearAllFilters,
-                                onSelectLayoutStyle = viewModel::setLayoutStyle,
-                                onSelectSortOrder = viewModel::setSortOrder,
-                                onOpenNote = ::openNoteWithLockCheck,
-                                onOpenContextMenu = { contextMenuNote = it },
-                                onTogglePin = viewModel::togglePin,
-                                onMoveToTrash = viewModel::moveToTrash,
-                                onToggleChecklistItem = viewModel::toggleChecklistItemOnCard,
-                                onReadAloud = ::speakNoteHelper,
-                                onCreateBlankNote = {
-                                    activeEditorSession = EditorSessionState(note = null)
-                                },
-                                onCreateChecklistNote = {
-                                    activeEditorSession = EditorSessionState(
-                                        note = null,
-                                        startWithChecklist = true
-                                    )
-                                },
-                                onCreateVoiceNote = {
-                                    activeEditorSession = EditorSessionState(
-                                        note = null,
-                                        startWithVoice = true
-                                    )
-                                },
-                                onEmptyTrashClick = { showEmptyTrashDialog = true }
-                            )
+                    PrimaryStudioTab.VOICE -> VoiceAndListenScreen(
+                        allNotes = allNotes,
+                        unlockedNoteIds = unlockedNoteIds,
+                        isSpeaking = isSpeaking,
+                        speakingNoteId = speakingNoteId,
+                        speechRate = preferences.ttsSpeechRate,
+                        onChangeSpeechRate = { rate ->
+                            viewModel.setTtsSpeechRate(rate)
+                            ttsManager.setRate(rate)
+                        },
+                        onPlayNoteAloud = ::speakNoteHelper,
+                        onStopAudio = { ttsManager.stop() },
+                        onOpenNote = ::openNoteWithLockCheck
+                    )
 
-                            PrimaryStudioTab.FOLDERS -> FoldersScreen(
-                                folders = allFolders,
-                                allNotes = allNotes,
-                                onOpenFolderNotes = { folder ->
-                                    viewModel.setExplicitFolderFilter(folder.id)
-                                    currentTab = PrimaryStudioTab.NOTES
-                                },
-                                onCreateFolderClick = {
-                                    folderEditorTarget = true to null
-                                },
-                                onEditFolderClick = { folder ->
-                                    folderEditorTarget = true to folder
-                                },
-                                onDeleteFolderClick = { folder ->
-                                    viewModel.deleteFolder(folder)
-                                }
-                            )
-
-                            PrimaryStudioTab.VOICE -> VoiceAndListenScreen(
-                                allNotes = allNotes,
-                                unlockedNoteIds = unlockedNoteIds,
-                                isSpeaking = isSpeaking,
-                                speakingNoteId = speakingNoteId,
-                                speechRate = preferences.ttsSpeechRate,
-                                onChangeSpeechRate = { rate ->
-                                    viewModel.setTtsSpeechRate(rate)
-                                    ttsManager.setRate(rate)
-                                },
-                                onPlayNoteAloud = ::speakNoteHelper,
-                                onStopAudio = { ttsManager.stop() },
-                                onOpenNote = ::openNoteWithLockCheck,
-                                onNewVoiceNoteClick = {
-                                    activeEditorSession = EditorSessionState(
-                                        note = null,
-                                        startWithVoice = true
-                                    )
-                                }
-                            )
-
-                            PrimaryStudioTab.SETTINGS -> SettingsScreen(
-                                userEmail = userEmail,
-                                preferences = preferences,
-                                archivedCount = allNotes.count { !it.isTrashed && it.isArchived },
-                                trashedCount = allNotes.count { it.isTrashed },
-                                lockedCount = allNotes.count { !it.isTrashed && it.isLocked },
-                                onSelectTheme = viewModel::setThemeMode,
-                                onSelectLayoutStyle = viewModel::setLayoutStyle,
-                                onSelectSortOrder = viewModel::setSortOrder,
-                                onChangeFontScale = viewModel::setFontScale,
-                                onConfigurePasscodeClick = {
-                                    isSettingNewPinInDialog = true
-                                    passcodeDialogAction = {}
-                                },
-                                onOpenWorkspaceFilter = { filter ->
-                                    viewModel.selectWorkspaceFilter(filter)
-                                    currentTab = PrimaryStudioTab.NOTES
-                                },
-                                onSignOutClick = {
-                                    ttsManager.stop()
-                                    signOut(
-                                        context = context,
-                                        credentialManager = credentialManager,
-                                        onSignOutComplete = {},
-                                        scope = scope
-                                    )
-                                }
-                            )
+                    PrimaryStudioTab.SETTINGS -> SettingsScreen(
+                        preferences = preferences,
+                        totalNotesCount = allNotes.count { !it.isTrashed },
+                        archivedCount = allNotes.count { !it.isTrashed && it.isArchived },
+                        trashedCount = allNotes.count { it.isTrashed },
+                        lockedCount = allNotes.count { !it.isTrashed && it.isLocked },
+                        onSelectTheme = viewModel::setThemeMode,
+                        onSelectLayoutStyle = viewModel::setLayoutStyle,
+                        onSelectSortOrder = viewModel::setSortOrder,
+                        onChangeFontScale = viewModel::setFontScale,
+                        onConfigurePasscodeClick = {
+                            isSettingNewPinInDialog = true
+                            passcodeDialogAction = {}
+                        },
+                        onOpenWorkspaceFilter = { filter ->
+                            viewModel.selectWorkspaceFilter(filter)
+                            currentTab = PrimaryStudioTab.NOTES
                         }
-                    }
+                    )
                 }
             }
         }
     }
 
-    // Context Menu Bottom Sheet
     val targetMenuNote = contextMenuNote
     if (targetMenuNote != null) {
         NoteContextBottomSheet(
@@ -547,7 +403,6 @@ fun MainWorkspaceScreen(
         )
     }
 
-    // Permanent Delete Confirmation Dialog
     val deleteTarget = notePendingPermanentDelete
     if (deleteTarget != null) {
         ConfirmPermanentDeleteDialog(
@@ -574,7 +429,6 @@ fun MainWorkspaceScreen(
         )
     }
 
-    // Folder Editor Dialog
     if (folderEditorTarget.first) {
         FolderEditorDialog(
             initialFolder = folderEditorTarget.second,
@@ -585,7 +439,6 @@ fun MainWorkspaceScreen(
         )
     }
 
-    // Passcode Lock Dialog
     val pendingPasscodeCallback = passcodeDialogAction
     if (pendingPasscodeCallback != null) {
         PasscodeLockDialog(
@@ -609,24 +462,156 @@ fun MainWorkspaceScreen(
 }
 
 @Composable
+private fun MinimalFloatingDock(
+    currentTab: PrimaryStudioTab,
+    isChecklistFilterActive: Boolean,
+    onSelectTab: (PrimaryStudioTab) -> Unit,
+    onNewNoteClick: () -> Unit,
+    onToggleChecklistView: () -> Unit
+) {
+    val isDark = LocalIsDarkTheme.current
+    val dockContainerColor = if (isDark) Color(0xFF1E1E22) else Color(0xFF18181B)
+    val dockBorderColor = if (isDark) Color(0xFF323236) else Color(0xFF27272A)
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .navigationBarsPadding()
+            .padding(horizontal = 20.dp, vertical = 12.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Surface(
+            shape = RoundedCornerShape(34.dp),
+            color = dockContainerColor,
+            border = BorderStroke(1.dp, dockBorderColor),
+            tonalElevation = 6.dp,
+            modifier = Modifier
+                .fillMaxWidth()
+                .widthIn(max = 460.dp)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 18.dp, vertical = 10.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // 1. Notes Stream Tab
+                IconButton(
+                    onClick = { onSelectTab(PrimaryStudioTab.NOTES) },
+                    modifier = Modifier
+                        .minimumInteractiveComponentSize()
+                        .testTag("nav_tab_notes")
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.Public,
+                        contentDescription = stringResource(R.string.nav_notes),
+                        tint = if (currentTab == PrimaryStudioTab.NOTES && !isChecklistFilterActive) {
+                            Color.White
+                        } else {
+                            Color(0xFF9E9EA6)
+                        },
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+
+                // 2. Listen Aloud (Audio) Tab
+                IconButton(
+                    onClick = { onSelectTab(PrimaryStudioTab.VOICE) },
+                    modifier = Modifier
+                        .minimumInteractiveComponentSize()
+                        .testTag("nav_tab_voice")
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.Headphones,
+                        contentDescription = stringResource(R.string.nav_voice),
+                        tint = if (currentTab == PrimaryStudioTab.VOICE) {
+                            Color.White
+                        } else {
+                            Color(0xFF9E9EA6)
+                        },
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+
+                // 3. Center Circular Monochrome New Note Button
+                Box(
+                    modifier = Modifier
+                        .size(56.dp)
+                        .clip(CircleShape)
+                        .background(Color.White)
+                        .clickable(onClick = onNewNoteClick)
+                        .testTag("fab_new_note"),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Add,
+                        contentDescription = stringResource(R.string.action_new_note),
+                        tint = Color(0xFF111113),
+                        modifier = Modifier.size(28.dp)
+                    )
+                }
+
+                // 4. Folders / Collections Tab
+                IconButton(
+                    onClick = { onSelectTab(PrimaryStudioTab.FOLDERS) },
+                    modifier = Modifier
+                        .minimumInteractiveComponentSize()
+                        .testTag("nav_tab_folders")
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.BarChart,
+                        contentDescription = stringResource(R.string.nav_folders),
+                        tint = if (currentTab == PrimaryStudioTab.FOLDERS) {
+                            Color.White
+                        } else {
+                            Color(0xFF9E9EA6)
+                        },
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+
+                // 5. Checklists / Quick Notes Filter
+                IconButton(
+                    onClick = onToggleChecklistView,
+                    modifier = Modifier
+                        .minimumInteractiveComponentSize()
+                        .testTag("quick_capture_checklist_button")
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.ChatBubbleOutline,
+                        contentDescription = stringResource(R.string.action_new_checklist),
+                        tint = if (currentTab == PrimaryStudioTab.NOTES && isChecklistFilterActive) {
+                            Color.White
+                        } else {
+                            Color(0xFF9E9EA6)
+                        },
+                        modifier = Modifier.size(23.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun NotesStreamScreen(
     notesUiState: UiState<List<Note>>,
     filteredNotes: List<Note>,
     folders: List<Folder>,
-    availableTags: List<String>,
     filterState: com.example.ui.viewmodel.WorkspaceFilterState,
     layoutStyle: NoteLayoutStyle,
-    sortOrder: NoteSortOrder,
     unlockedNoteIds: Set<String>,
     isSpeaking: Boolean,
     speakingNoteId: String?,
     onSearchQueryChange: (String) -> Unit,
+    onStepMonth: (Int) -> Unit,
+    onResetMonth: () -> Unit,
     onSelectWorkspaceFilter: (NoteWorkspaceFilter) -> Unit,
     onSelectFolderFilter: (String?) -> Unit,
     onSelectTagFilter: (String?) -> Unit,
     onClearFilters: () -> Unit,
-    onSelectLayoutStyle: (NoteLayoutStyle) -> Unit,
-    onSelectSortOrder: (NoteSortOrder) -> Unit,
+    onOpenSettings: () -> Unit,
     onOpenNote: (Note) -> Unit,
     onOpenContextMenu: (Note) -> Unit,
     onTogglePin: (Note) -> Unit,
@@ -635,11 +620,15 @@ private fun NotesStreamScreen(
     onReadAloud: (Note) -> Unit,
     onCreateBlankNote: () -> Unit,
     onCreateChecklistNote: () -> Unit,
-    onCreateVoiceNote: () -> Unit,
     onEmptyTrashClick: () -> Unit
 ) {
-    var showSortMenu by remember { mutableStateOf(false) }
     val folderMap = remember(folders) { folders.associateBy { it.id } }
+    val monthTitle = remember(filterState.monthOffset) {
+        val cal = Calendar.getInstance().apply {
+            add(Calendar.MONTH, filterState.monthOffset)
+        }
+        SimpleDateFormat("MMMM yyyy", Locale.getDefault()).format(cal.time)
+    }
 
     Box(
         modifier = Modifier.fillMaxSize(),
@@ -648,37 +637,31 @@ private fun NotesStreamScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .widthIn(max = 920.dp)
+                .widthIn(max = 680.dp)
         ) {
-            // Editorial Header & Quick Controls
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 20.dp, vertical = 10.dp)
+                    .padding(horizontal = 20.dp, vertical = 8.dp)
             ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                // 1. Minimal Centered Header ("My Notes") + Right Settings Gear Icon
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 6.dp)
                 ) {
-                    Column {
-                        Text(
-                            text = stringResource(R.string.app_name),
-                            style = MaterialTheme.typography.displaySmall,
-                            color = MaterialTheme.colorScheme.onBackground
-                        )
-                        val activeFolderName = filterState.selectedFolderId?.let { folderMap[it]?.name }
-                        Text(
-                            text = buildString {
-                                append(activeFolderName ?: filterState.workspaceFilter.label)
-                                append(" • ${filteredNotes.size} ${if (filteredNotes.size == 1) "thought" else "thoughts"}")
-                            },
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
+                    Text(
+                        text = stringResource(R.string.app_name),
+                        style = MaterialTheme.typography.displaySmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onBackground,
+                        modifier = Modifier.align(Alignment.Center)
+                    )
 
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    Row(
+                        modifier = Modifier.align(Alignment.CenterEnd),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
                         if (filterState.workspaceFilter == NoteWorkspaceFilter.TRASH && filteredNotes.isNotEmpty()) {
                             TextButton(
                                 onClick = onEmptyTrashClick,
@@ -694,169 +677,155 @@ private fun NotesStreamScreen(
                             }
                         }
 
-                        // Layout Mode Switcher (Grid -> List -> Compact)
                         IconButton(
-                            onClick = {
-                                val next = when (layoutStyle) {
-                                    NoteLayoutStyle.MASONRY_GRID -> NoteLayoutStyle.COMFORTABLE_LIST
-                                    NoteLayoutStyle.COMFORTABLE_LIST -> NoteLayoutStyle.COMPACT_INDEX
-                                    NoteLayoutStyle.COMPACT_INDEX -> NoteLayoutStyle.MASONRY_GRID
-                                }
-                                onSelectLayoutStyle(next)
-                            },
+                            onClick = onOpenSettings,
                             modifier = Modifier
                                 .minimumInteractiveComponentSize()
-                                .testTag("toggle_layout_style_button")
+                                .testTag("nav_tab_settings")
                         ) {
                             Icon(
-                                imageVector = when (layoutStyle) {
-                                    NoteLayoutStyle.MASONRY_GRID -> Icons.Outlined.GridView
-                                    NoteLayoutStyle.COMFORTABLE_LIST -> Icons.Outlined.ViewAgenda
-                                    NoteLayoutStyle.COMPACT_INDEX -> Icons.Outlined.ViewHeadline
-                                },
-                                contentDescription = "Switch layout view",
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                imageVector = Icons.Filled.Settings,
+                                contentDescription = stringResource(R.string.nav_settings),
+                                tint = MaterialTheme.colorScheme.onBackground,
+                                modifier = Modifier.size(24.dp)
                             )
-                        }
-
-                        // Sort Menu Button
-                        Box {
-                            IconButton(
-                                onClick = { showSortMenu = true },
-                                modifier = Modifier
-                                    .minimumInteractiveComponentSize()
-                                    .testTag("sort_menu_button")
-                            ) {
-                                Icon(
-                                    imageVector = Icons.AutoMirrored.Outlined.Sort,
-                                    contentDescription = "Sort notes",
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                            DropdownMenu(
-                                expanded = showSortMenu,
-                                onDismissRequest = { showSortMenu = false }
-                            ) {
-                                NoteSortOrder.entries.forEach { option ->
-                                    DropdownMenuItem(
-                                        text = {
-                                            Text(
-                                                text = option.label,
-                                                fontWeight = if (sortOrder == option) FontWeight.Bold else FontWeight.Normal
-                                            )
-                                        },
-                                        onClick = {
-                                            onSelectSortOrder(option)
-                                            showSortMenu = false
-                                        }
-                                    )
-                                }
-                            }
                         }
                     }
                 }
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                // Tactile Search Bar + Quick Capture Strip
-                OutlinedTextField(
-                    value = filterState.searchQuery,
-                    onValueChange = onSearchQueryChange,
-                    placeholder = {
-                        Text(
-                            text = stringResource(R.string.search_placeholder),
-                            style = MaterialTheme.typography.bodyMedium,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    },
-                    leadingIcon = {
-                        Icon(
-                            imageVector = Icons.Filled.Search,
-                            contentDescription = "Search",
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    },
-                    trailingIcon = {
-                        if (filterState.searchQuery.isNotEmpty()) {
-                            IconButton(onClick = { onSearchQueryChange("") }) {
-                                Icon(
-                                    imageVector = Icons.Filled.Close,
-                                    contentDescription = "Clear search"
-                                )
-                            }
-                        } else {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.padding(end = 6.dp)
-                            ) {
-                                IconButton(
-                                    onClick = onCreateChecklistNote,
-                                    modifier = Modifier
-                                        .size(36.dp)
-                                        .testTag("quick_capture_checklist_button")
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Outlined.CheckBox,
-                                        contentDescription = "New checklist note",
-                                        tint = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.size(19.dp)
-                                    )
-                                }
-                            }
-                        }
-                    },
-                    singleLine = true,
-                    shape = RoundedCornerShape(16.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
-                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-                        focusedBorderColor = MaterialTheme.colorScheme.primary,
-                        unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant
-                    ),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .testTag("workspace_search_input")
-                )
 
                 Spacer(modifier = Modifier.height(10.dp))
 
-                // Horizontal Filter & Folder Pills Strip
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .horizontalScroll(rememberScrollState())
+                // 2. Clean White Pill Search Bar ("Search notes...")
+                Surface(
+                    shape = RoundedCornerShape(18.dp),
+                    color = MaterialTheme.colorScheme.surface,
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.7f)),
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    NoteWorkspaceFilter.entries.forEach { wf ->
-                        val selected = filterState.workspaceFilter == wf && filterState.selectedFolderId == null
-                        FilterChip(
-                            selected = selected,
-                            onClick = {
-                                if (filterState.selectedFolderId != null) {
-                                    onSelectFolderFilter(null)
-                                }
-                                onSelectWorkspaceFilter(wf)
-                            },
-                            label = {
-                                Text(
-                                    text = wf.label,
-                                    style = MaterialTheme.typography.labelLarge
-                                )
-                            },
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                                selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
-                            ),
-                            modifier = Modifier.testTag("filter_chip_${wf.name.lowercase()}")
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(52.dp)
+                            .padding(horizontal = 16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.Search,
+                            contentDescription = "Search",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(20.dp)
                         )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        BasicTextField(
+                            value = filterState.searchQuery,
+                            onValueChange = onSearchQueryChange,
+                            singleLine = true,
+                            textStyle = MaterialTheme.typography.bodyLarge.copy(
+                                color = MaterialTheme.colorScheme.onSurface
+                            ),
+                            keyboardOptions = KeyboardOptions(
+                                autoCorrectEnabled = true,
+                                imeAction = ImeAction.Search
+                            ),
+                            cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                            decorationBox = { innerTextField ->
+                                Box(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    contentAlignment = Alignment.CenterStart
+                                ) {
+                                    if (filterState.searchQuery.isEmpty()) {
+                                        Text(
+                                            text = "Search notes...",
+                                            style = MaterialTheme.typography.bodyLarge,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.65f)
+                                        )
+                                    }
+                                    innerTextField()
+                                }
+                            },
+                            modifier = Modifier
+                                .weight(1f)
+                                .testTag("workspace_search_input")
+                        )
+                        if (filterState.searchQuery.isNotEmpty()) {
+                            IconButton(
+                                onClick = { onSearchQueryChange("") },
+                                modifier = Modifier.size(32.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.Close,
+                                    contentDescription = "Clear search",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        }
                     }
                 }
 
-                // Secondary Strip for Folders & Active Tags
-                if (folders.isNotEmpty() || availableTags.isNotEmpty()) {
-                    Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // 3. Clean White Pill Month Navigator ("<  October 2026  >")
+                Surface(
+                    shape = RoundedCornerShape(18.dp),
+                    color = MaterialTheme.colorScheme.surface,
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.7f)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(50.dp)
+                            .padding(horizontal = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        IconButton(
+                            onClick = { onStepMonth(-1) },
+                            modifier = Modifier
+                                .minimumInteractiveComponentSize()
+                                .testTag("month_prev_button")
+                        ) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Outlined.KeyboardArrowLeft,
+                                contentDescription = "Previous month",
+                                tint = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+
+                        Text(
+                            text = monthTitle,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable { onResetMonth() }
+                                .padding(horizontal = 12.dp, vertical = 4.dp)
+                        )
+
+                        IconButton(
+                            onClick = { onStepMonth(1) },
+                            modifier = Modifier
+                                .minimumInteractiveComponentSize()
+                                .testTag("month_next_button")
+                        ) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Outlined.KeyboardArrowRight,
+                                contentDescription = "Next month",
+                                tint = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                    }
+                }
+
+                // Active Filter Pill Banner (shown only when a non-default filter, folder, or tag is active)
+                val hasActiveContextFilter = filterState.workspaceFilter != NoteWorkspaceFilter.ALL ||
+                    filterState.selectedFolderId != null ||
+                    filterState.selectedTag != null
+
+                if (hasActiveContextFilter) {
+                    Spacer(modifier = Modifier.height(10.dp))
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically,
@@ -864,56 +833,37 @@ private fun NotesStreamScreen(
                             .fillMaxWidth()
                             .horizontalScroll(rememberScrollState())
                     ) {
-                        folders.forEach { folder ->
-                            val isSelected = filterState.selectedFolderId == folder.id
+                        if (filterState.workspaceFilter != NoteWorkspaceFilter.ALL) {
                             FilterChip(
-                                selected = isSelected,
-                                onClick = { onSelectFolderFilter(folder.id) },
-                                leadingIcon = {
-                                    Icon(
-                                        imageVector = resolveFolderIcon(folder.iconKey),
-                                        contentDescription = null,
-                                        modifier = Modifier.size(15.dp)
-                                    )
-                                },
-                                label = {
-                                    Text(
-                                        text = folder.name,
-                                        style = MaterialTheme.typography.labelMedium
-                                    )
-                                }
+                                selected = true,
+                                onClick = { onSelectWorkspaceFilter(NoteWorkspaceFilter.ALL) },
+                                label = { Text("${filterState.workspaceFilter.label} ✕") },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = MaterialTheme.colorScheme.primary,
+                                    selectedLabelColor = MaterialTheme.colorScheme.onPrimary
+                                )
                             )
                         }
-
-                        availableTags.take(8).forEach { tag ->
-                            val isTagSelected = filterState.selectedTag.equals(tag, ignoreCase = true)
-                            Surface(
-                                shape = RoundedCornerShape(8.dp),
-                                color = if (isTagSelected) MaterialTheme.colorScheme.secondaryContainer
-                                else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
-                                border = BorderStroke(
-                                    1.dp,
-                                    if (isTagSelected) MaterialTheme.colorScheme.secondary
-                                    else MaterialTheme.colorScheme.outlineVariant
-                                ),
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .clickable { onSelectTagFilter(tag) }
-                            ) {
-                                Text(
-                                    text = "#$tag",
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = if (isTagSelected) MaterialTheme.colorScheme.onSecondaryContainer
-                                    else MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
-                                )
-                            }
+                        filterState.selectedFolderId?.let { folderId ->
+                            val folderName = folderMap[folderId]?.name ?: "Folder"
+                            FilterChip(
+                                selected = true,
+                                onClick = { onSelectFolderFilter(null) },
+                                label = { Text("$folderName ✕") }
+                            )
+                        }
+                        filterState.selectedTag?.let { activeTag ->
+                            FilterChip(
+                                selected = true,
+                                onClick = { onSelectTagFilter(null) },
+                                label = { Text("$activeTag ✕") }
+                            )
                         }
                     }
                 }
             }
 
-            // Main Notes Stream Content
+            // 4. Clean Minimal Note Cards Stream
             when (notesUiState) {
                 is UiState.Loading -> {
                     Box(
@@ -943,6 +893,7 @@ private fun NotesStreamScreen(
                     val isFilteredOrSearched = filterState.searchQuery.isNotBlank() ||
                         filterState.selectedTag != null ||
                         filterState.selectedFolderId != null ||
+                        filterState.filterByMonth ||
                         filterState.workspaceFilter != NoteWorkspaceFilter.ALL
 
                     AnimatedVisibility(
@@ -952,63 +903,30 @@ private fun NotesStreamScreen(
                     ) {
                         EditorialEmptyState(
                             isSearchFiltered = isFilteredOrSearched,
-                            activeFilterLabel = filterState.workspaceFilter.label,
+                            activeFilterLabel = if (filterState.filterByMonth) monthTitle else filterState.workspaceFilter.label,
                             onCreateBlankNote = onCreateBlankNote,
                             onCreateChecklistNote = onCreateChecklistNote,
-                            onCreateVoiceNote = onCreateVoiceNote,
                             onClearFilters = onClearFilters
                         )
                     }
 
                     if (filteredNotes.isNotEmpty()) {
-                        val pinnedNotes = filteredNotes.filter { it.isPinned }
-                        val unpinnedNotes = filteredNotes.filter { !it.isPinned }
-
                         if (layoutStyle == NoteLayoutStyle.MASONRY_GRID) {
                             LazyVerticalStaggeredGrid(
                                 columns = StaggeredGridCells.Adaptive(minSize = 240.dp),
-                                verticalItemSpacing = 12.dp,
-                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                verticalItemSpacing = 14.dp,
+                                horizontalArrangement = Arrangement.spacedBy(14.dp),
                                 contentPadding = PaddingValues(
                                     start = 20.dp,
                                     end = 20.dp,
-                                    top = 4.dp,
-                                    bottom = 120.dp
+                                    top = 8.dp,
+                                    bottom = 24.dp
                                 ),
                                 modifier = Modifier
                                     .fillMaxSize()
                                     .testTag("notes_masonry_grid")
                             ) {
-                                if (pinnedNotes.isNotEmpty() && unpinnedNotes.isNotEmpty()) {
-                                    item(span = StaggeredGridItemSpan.FullLine) {
-                                        SectionDividerHeader("PINNED THOUGHTS")
-                                    }
-                                }
-
-                                items(pinnedNotes, key = { "pin_${it.id}" }) { note ->
-                                    SwipeableNoteItem(
-                                        note = note,
-                                        folder = folderMap[note.folderId],
-                                        isUnlocked = unlockedNoteIds.contains(note.id),
-                                        isSpeakingThisNote = isSpeaking && speakingNoteId == note.id,
-                                        compactMode = false,
-                                        onNoteClick = { onOpenNote(note) },
-                                        onNoteLongPress = { onOpenContextMenu(note) },
-                                        onTogglePin = { onTogglePin(note) },
-                                        onMoveToTrash = { onMoveToTrash(note) },
-                                        onToggleChecklistItem = { idx -> onToggleChecklistItem(note, idx) },
-                                        onReadAloudClick = { onReadAloud(note) },
-                                        onTagClick = { tag -> onSelectTagFilter(tag) }
-                                    )
-                                }
-
-                                if (pinnedNotes.isNotEmpty() && unpinnedNotes.isNotEmpty()) {
-                                    item(span = StaggeredGridItemSpan.FullLine) {
-                                        SectionDividerHeader("RECENT NOTES")
-                                    }
-                                }
-
-                                items(unpinnedNotes, key = { "note_${it.id}" }) { note ->
+                                items(filteredNotes, key = { it.id }) { note ->
                                     SwipeableNoteItem(
                                         note = note,
                                         folder = folderMap[note.folderId],
@@ -1028,43 +946,18 @@ private fun NotesStreamScreen(
                         } else {
                             val isCompact = layoutStyle == NoteLayoutStyle.COMPACT_INDEX
                             LazyColumn(
-                                verticalArrangement = Arrangement.spacedBy(if (isCompact) 8.dp else 12.dp),
+                                verticalArrangement = Arrangement.spacedBy(if (isCompact) 10.dp else 14.dp),
                                 contentPadding = PaddingValues(
                                     start = 20.dp,
                                     end = 20.dp,
-                                    top = 4.dp,
-                                    bottom = 120.dp
+                                    top = 8.dp,
+                                    bottom = 24.dp
                                 ),
                                 modifier = Modifier
                                     .fillMaxSize()
                                     .testTag("notes_list_column")
                             ) {
-                                if (pinnedNotes.isNotEmpty() && unpinnedNotes.isNotEmpty()) {
-                                    item { SectionDividerHeader("PINNED THOUGHTS") }
-                                }
-
-                                items(pinnedNotes, key = { "pin_${it.id}" }) { note ->
-                                    SwipeableNoteItem(
-                                        note = note,
-                                        folder = folderMap[note.folderId],
-                                        isUnlocked = unlockedNoteIds.contains(note.id),
-                                        isSpeakingThisNote = isSpeaking && speakingNoteId == note.id,
-                                        compactMode = isCompact,
-                                        onNoteClick = { onOpenNote(note) },
-                                        onNoteLongPress = { onOpenContextMenu(note) },
-                                        onTogglePin = { onTogglePin(note) },
-                                        onMoveToTrash = { onMoveToTrash(note) },
-                                        onToggleChecklistItem = { idx -> onToggleChecklistItem(note, idx) },
-                                        onReadAloudClick = { onReadAloud(note) },
-                                        onTagClick = { tag -> onSelectTagFilter(tag) }
-                                    )
-                                }
-
-                                if (pinnedNotes.isNotEmpty() && unpinnedNotes.isNotEmpty()) {
-                                    item { SectionDividerHeader("RECENT NOTES") }
-                                }
-
-                                items(unpinnedNotes, key = { "note_${it.id}" }) { note ->
+                                items(filteredNotes, key = { it.id }) { note ->
                                     SwipeableNoteItem(
                                         note = note,
                                         folder = folderMap[note.folderId],
@@ -1086,28 +979,5 @@ private fun NotesStreamScreen(
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun SectionDividerHeader(title: String) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = 6.dp, bottom = 2.dp)
-    ) {
-        Text(
-            text = title,
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.primary
-        )
-        Spacer(modifier = Modifier.width(10.dp))
-        Box(
-            modifier = Modifier
-                .weight(1f)
-                .height(1.dp)
-                .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f))
-        )
     }
 }

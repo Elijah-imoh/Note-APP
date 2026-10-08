@@ -12,19 +12,19 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 
-private val EditorialLightColorScheme = lightColorScheme(
-    primary = TerracottaPrimaryLight,
+private val MonochromeLightColorScheme = lightColorScheme(
+    primary = MonochromePrimaryLight,
     onPrimary = Color.White,
-    primaryContainer = TerracottaContainerLight,
-    onPrimaryContainer = OnTerracottaContainerLight,
-    secondary = SageSecondaryLight,
+    primaryContainer = MonochromeContainerLight,
+    onPrimaryContainer = OnMonochromeContainerLight,
+    secondary = MonochromeSecondaryLight,
     onSecondary = Color.White,
-    secondaryContainer = SageContainerLight,
-    onSecondaryContainer = OnSageContainerLight,
-    tertiary = OchreTertiaryLight,
+    secondaryContainer = MonochromeSecondaryContainerLight,
+    onSecondaryContainer = OnMonochromeSecondaryContainerLight,
+    tertiary = MonochromeTertiaryLight,
     onTertiary = Color.White,
-    tertiaryContainer = OchreContainerLight,
-    onTertiaryContainer = OnOchreContainerLight,
+    tertiaryContainer = MonochromeTertiaryContainerLight,
+    onTertiaryContainer = OnMonochromeTertiaryContainerLight,
     background = PaperLightBackground,
     onBackground = InkLightPrimary,
     surface = PaperLightSurface,
@@ -32,31 +32,31 @@ private val EditorialLightColorScheme = lightColorScheme(
     surfaceVariant = PaperLightSurfaceVariant,
     onSurfaceVariant = InkLightSecondary,
     surfaceContainerLowest = PaperLightSurfaceElevated,
-    surfaceContainerLow = PaperLightBackground,
+    surfaceContainerLow = PaperLightSurface,
     surfaceContainer = PaperLightSurface,
     surfaceContainerHigh = PaperLightSurfaceVariant,
     surfaceContainerHighest = OutlineVariantLight,
     outline = OutlineLight,
     outlineVariant = OutlineVariantLight,
-    error = Color(0xFFB3261E),
+    error = Color(0xFF1A1A1A),
     onError = Color.White,
-    errorContainer = Color(0xFFF9DEDC),
-    onErrorContainer = Color(0xFF410E0B)
+    errorContainer = Color(0xFFE5E5E5),
+    onErrorContainer = Color(0xFF0A0A0A)
 )
 
-private val EditorialDarkColorScheme = darkColorScheme(
-    primary = TerracottaPrimaryDark,
-    onPrimary = Color(0xFF381104),
-    primaryContainer = TerracottaContainerDark,
-    onPrimaryContainer = OnTerracottaContainerDark,
-    secondary = SageSecondaryDark,
-    onSecondary = Color(0xFF0E291E),
-    secondaryContainer = SageContainerDark,
-    onSecondaryContainer = OnSageContainerDark,
-    tertiary = OchreTertiaryDark,
-    onTertiary = Color(0xFF382300),
-    tertiaryContainer = OchreContainerDark,
-    onTertiaryContainer = OnOchreContainerDark,
+private val MonochromeDarkColorScheme = darkColorScheme(
+    primary = MonochromePrimaryDark,
+    onPrimary = Color(0xFF0A0A0A),
+    primaryContainer = MonochromeContainerDark,
+    onPrimaryContainer = OnMonochromeContainerDark,
+    secondary = MonochromeSecondaryDark,
+    onSecondary = Color(0xFF0A0A0A),
+    secondaryContainer = MonochromeSecondaryContainerDark,
+    onSecondaryContainer = OnMonochromeSecondaryContainerDark,
+    tertiary = MonochromeTertiaryDark,
+    onTertiary = Color(0xFF0A0A0A),
+    tertiaryContainer = MonochromeTertiaryContainerDark,
+    onTertiaryContainer = OnMonochromeTertiaryContainerDark,
     background = PaperDarkBackground,
     onBackground = InkDarkPrimary,
     surface = PaperDarkSurface,
@@ -70,18 +70,18 @@ private val EditorialDarkColorScheme = darkColorScheme(
     surfaceContainerHighest = OutlineDark,
     outline = OutlineDark,
     outlineVariant = OutlineVariantDark,
-    error = Color(0xFFF2B8B5),
-    onError = Color(0xFF601410),
-    errorContainer = Color(0xFF8C1D18),
-    onErrorContainer = Color(0xFFF9DEDC)
+    error = Color(0xFFE5E5E5),
+    onError = Color(0xFF0A0A0A),
+    errorContainer = Color(0xFF2E2E2E),
+    onErrorContainer = Color(0xFFFAFAFA)
 )
 
 val EditorialShapes = Shapes(
     extraSmall = RoundedCornerShape(6.dp),
     small = RoundedCornerShape(10.dp),
-    medium = RoundedCornerShape(16.dp),
-    large = RoundedCornerShape(22.dp),
-    extraLarge = RoundedCornerShape(28.dp)
+    medium = RoundedCornerShape(14.dp),
+    large = RoundedCornerShape(20.dp),
+    extraLarge = RoundedCornerShape(26.dp)
 )
 
 val LocalIsDarkTheme = staticCompositionLocalOf { false }
@@ -92,7 +92,7 @@ fun MyNotesTheme(
     fontScale: Float = 1.0f,
     content: @Composable () -> Unit
 ) {
-    val colorScheme = if (darkTheme) EditorialDarkColorScheme else EditorialLightColorScheme
+    val colorScheme = if (darkTheme) MonochromeDarkColorScheme else MonochromeLightColorScheme
     val typography = createEditorialTypography(fontScale)
 
     CompositionLocalProvider(LocalIsDarkTheme provides darkTheme) {

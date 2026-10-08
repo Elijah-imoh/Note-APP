@@ -12,17 +12,14 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.MenuBook
@@ -36,27 +33,21 @@ import androidx.compose.material.icons.outlined.CheckBox
 import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.EditNote
 import androidx.compose.material.icons.outlined.Folder
-import androidx.compose.material.icons.outlined.GraphicEq
 import androidx.compose.material.icons.outlined.Lightbulb
 import androidx.compose.material.icons.outlined.Lock
-import androidx.compose.material.icons.outlined.MenuBook
-import androidx.compose.material.icons.outlined.MicNone
-import androidx.compose.material.icons.outlined.MoreHoriz
 import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material.icons.outlined.RadioButtonUnchecked
-import androidx.compose.material.icons.outlined.VolumeUp
+import androidx.compose.material.icons.outlined.SentimentSatisfied
 import androidx.compose.material.icons.outlined.WorkOutline
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
-import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -84,24 +75,13 @@ import com.example.data.model.Note
 import com.example.data.model.NoteColorPalette
 import com.example.ui.theme.LocalIsDarkTheme
 import com.example.ui.theme.resolveColors
-import com.example.ui.theme.resolveFolderAccentColor
-import com.google.firebase.Timestamp
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-fun formatEditorialTimestamp(timestamp: Timestamp?): String {
-    val date = timestamp?.toDate() ?: Date()
-    val now = System.currentTimeMillis()
-    val diffMs = now - date.time
-    val oneDayMs = 24 * 60 * 60 * 1000L
-    return when {
-        diffMs < 60_000L -> "Just now"
-        diffMs < 3600_000L -> "${(diffMs / 60_000L).coerceAtLeast(1)}m ago"
-        diffMs < oneDayMs -> SimpleDateFormat("h:mm a", Locale.getDefault()).format(date)
-        diffMs < 7 * oneDayMs -> SimpleDateFormat("EEE • MMM d", Locale.getDefault()).format(date)
-        else -> SimpleDateFormat("MMM d, yyyy", Locale.getDefault()).format(date)
-    }
+fun formatEditorialTimestamp(epochMillis: Long?): String {
+    val date = if (epochMillis != null && epochMillis > 0L) Date(epochMillis) else Date()
+    return SimpleDateFormat("MMM dd, yyyy · HH:mm", Locale.getDefault()).format(date)
 }
 
 fun formatReminderTime(millis: Long): String {
@@ -116,7 +96,6 @@ fun resolveFolderIcon(iconKey: String): ImageVector {
         "ideas" -> Icons.Outlined.Lightbulb
         "journal" -> Icons.Outlined.EditNote
         "bookmark" -> Icons.Outlined.BookmarkBorder
-        "voice" -> Icons.Outlined.GraphicEq
         "lock" -> Icons.Outlined.Lock
         else -> Icons.Outlined.Folder
     }
@@ -145,7 +124,7 @@ fun SwipeableNoteItem(
                 SwipeToDismissBoxValue.StartToEnd -> {
                     haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                     onTogglePin()
-                    false // Snap back after toggling pin
+                    false
                 }
                 SwipeToDismissBoxValue.EndToStart -> {
                     haptics.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -180,9 +159,9 @@ fun SwipeableNoteItem(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .clip(RoundedCornerShape(16.dp))
+                    .clip(RoundedCornerShape(24.dp))
                     .background(bgColor)
-                    .padding(horizontal = 20.dp),
+                    .padding(horizontal = 22.dp),
                 contentAlignment = when (direction) {
                     SwipeToDismissBoxValue.StartToEnd -> Alignment.CenterStart
                     else -> Alignment.CenterEnd
@@ -255,341 +234,249 @@ fun EditorialNoteCard(
     val isHiddenByLock = note.isLocked && !isUnlocked
 
     Surface(
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(24.dp),
         color = surfaceColors.container,
         border = BorderStroke(
-            width = if (note.isPinned) 1.5.dp else 1.dp,
-            color = if (note.isPinned) surfaceColors.accentBar.copy(alpha = 0.65f) else surfaceColors.border
+            width = 1.dp,
+            color = surfaceColors.border
         ),
-        tonalElevation = if (note.isPinned) 2.dp else 0.dp,
+        tonalElevation = 0.dp,
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
+            .clip(RoundedCornerShape(24.dp))
             .combinedClickable(
                 onClick = onClick,
                 onLongClick = onLongPress
             )
             .testTag("note_card_${note.id}")
     ) {
-        Row(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(IntrinsicSize.Min)
-        ) {
-            // Tactile Left Editorial Spine Indicator for Pinned or Colored Notes
-            if (note.isPinned || palette != NoteColorPalette.DEFAULT || note.isLocked) {
-                Box(
-                    modifier = Modifier
-                        .width(4.dp)
-                        .fillMaxHeight()
-                        .background(
-                            if (note.isLocked) MaterialTheme.colorScheme.tertiary
-                            else surfaceColors.accentBar
-                        )
+                .padding(
+                    horizontal = 20.dp,
+                    vertical = if (compactMode) 16.dp else 20.dp
                 )
-            }
-
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(
-                        start = 16.dp,
-                        end = 12.dp,
-                        top = if (compactMode) 12.dp else 14.dp,
-                        bottom = if (compactMode) 12.dp else 14.dp
-                    )
+        ) {
+            // Top Row: Bold Title on Left + Minimal Monochrome Status Pill Badge on Right
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.Top,
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                // Top Meta Header Row: Pinned icon / Folder chip / Timestamp / Quick actions
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = note.title.ifBlank { "Untitled thought" },
+                        style = if (compactMode) MaterialTheme.typography.titleMedium else MaterialTheme.typography.titleLarge,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        modifier = Modifier.weight(1f)
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        if (note.isPinned) {
-                            Icon(
-                                imageVector = Icons.Filled.PushPin,
-                                contentDescription = "Pinned",
-                                tint = surfaceColors.accentBar,
-                                modifier = Modifier.size(14.dp)
-                            )
-                        }
-                        if (note.isLocked) {
-                            Icon(
-                                imageVector = Icons.Filled.Lock,
-                                contentDescription = "Protected note",
-                                tint = MaterialTheme.colorScheme.tertiary,
-                                modifier = Modifier.size(14.dp)
-                            )
-                        }
-                        if (folder != null) {
-                            val folderAccent = resolveFolderAccentColor(folder.accentKey, isDark)
-                            Surface(
-                                shape = RoundedCornerShape(6.dp),
-                                color = folderAccent.copy(alpha = 0.14f)
-                            ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = resolveFolderIcon(folder.iconKey),
-                                        contentDescription = folder.name,
-                                        tint = folderAccent,
-                                        modifier = Modifier.size(11.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Text(
-                                        text = folder.name,
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = folderAccent,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
-                                }
-                            }
-                        }
                         Text(
-                            text = formatEditorialTimestamp(note.updatedAt ?: note.createdAt),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            text = formatEditorialTimestamp(note.updatedAtMillis),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f)
                         )
-                    }
-
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        if (!isHiddenByLock) {
-                            IconButton(
-                                onClick = onReadAloudClick,
-                                modifier = Modifier
-                                    .size(36.dp)
-                                    .minimumInteractiveComponentSize()
-                                    .testTag("listen_note_${note.id}")
-                            ) {
-                                Icon(
-                                    imageVector = Icons.AutoMirrored.Outlined.VolumeUp,
-                                    contentDescription = if (isSpeakingThisNote) "Stop reading aloud" else "Listen to note",
-                                    tint = if (isSpeakingThisNote) MaterialTheme.colorScheme.primary
-                                    else MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                            }
-                        }
-                        IconButton(
-                            onClick = onLongPress,
-                            modifier = Modifier
-                                .size(36.dp)
-                                .minimumInteractiveComponentSize()
-                                .testTag("more_note_${note.id}")
-                        ) {
-                            Icon(
-                                imageVector = Icons.Outlined.MoreHoriz,
-                                contentDescription = "Note options",
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(18.dp)
+                        if (folder != null) {
+                            Text(
+                                text = "· ${folder.name}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
                     }
                 }
 
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.width(12.dp))
 
-                // Title
-                Text(
-                    text = note.title.ifBlank { "Untitled thought" },
-                    style = if (compactMode) MaterialTheme.typography.titleMedium else MaterialTheme.typography.titleLarge,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = if (compactMode) 1 else 2,
-                    overflow = TextOverflow.Ellipsis
-                )
-
-                if (isHiddenByLock) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Surface(
-                        shape = RoundedCornerShape(10.dp),
-                        color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.45f),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                imageVector = Icons.Outlined.Lock,
-                                contentDescription = "Locked",
-                                tint = MaterialTheme.colorScheme.tertiary,
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = stringResource(R.string.note_locked_preview),
-                                style = MaterialTheme.typography.bodySmall,
-                                fontStyle = FontStyle.Italic,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                // Top-Right Minimal Monochrome Badge Pill (like the "8 ☺" badge in the reference UI)
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = if (isSpeakingThisNote) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.85f)
+                    },
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(12.dp))
+                        .clickable {
+                            if (!isHiddenByLock) {
+                                onReadAloudClick()
+                            } else {
+                                onLongPress()
+                            }
                         }
+                        .testTag("listen_note_${note.id}")
+                ) {
+                    val badgeContentColor = if (isSpeakingThisNote) {
+                        MaterialTheme.colorScheme.onPrimary
+                    } else {
+                        MaterialTheme.colorScheme.onSurface
                     }
-                } else if (!compactMode) {
-                    // Body Snippet
-                    if (note.content.isNotBlank()) {
-                        Spacer(modifier = Modifier.height(6.dp))
+
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                    ) {
+                        val badgeNumber = when {
+                            note.checklistItems.isNotEmpty() -> "${note.completedChecklistCount}/${note.checklistItems.size}"
+                            else -> ((note.wordCount / 3L).coerceIn(1L, 99L)).toString()
+                        }
                         Text(
-                            text = note.content,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 4,
-                            overflow = TextOverflow.Ellipsis
+                            text = badgeNumber,
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = badgeContentColor
+                        )
+                        Icon(
+                            imageVector = when {
+                                note.isLocked -> Icons.Filled.Lock
+                                isSpeakingThisNote -> Icons.AutoMirrored.Outlined.VolumeUp
+                                note.isPinned -> Icons.Filled.PushPin
+                                else -> Icons.Outlined.SentimentSatisfied
+                            },
+                            contentDescription = if (isSpeakingThisNote) "Stop reading aloud" else "Listen to note",
+                            tint = badgeContentColor,
+                            modifier = Modifier.size(15.dp)
                         )
                     }
+                }
+            }
 
-                    // Interactive Checklist Preview (up to 3 items)
-                    val checklist = note.parsedChecklist
-                    if (checklist.isNotEmpty()) {
-                        Spacer(modifier = Modifier.height(10.dp))
-                        Column(
-                            verticalArrangement = Arrangement.spacedBy(4.dp),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            checklist.take(3).forEachIndexed { idx, item ->
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .clip(RoundedCornerShape(6.dp))
-                                        .clickable { onToggleChecklistItem(idx) }
-                                        .padding(vertical = 2.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = if (item.isChecked) Icons.Filled.CheckCircle else Icons.Outlined.RadioButtonUnchecked,
-                                        contentDescription = if (item.isChecked) "Checked" else "Unchecked",
-                                        tint = if (item.isChecked) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text(
-                                        text = item.text,
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = if (item.isChecked) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.65f)
-                                        else MaterialTheme.colorScheme.onSurface,
-                                        textDecoration = if (item.isChecked) TextDecoration.LineThrough else TextDecoration.None,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
-                                }
-                            }
-                            if (checklist.size > 3) {
-                                Text(
-                                    text = "+${checklist.size - 3} more items (${note.completedChecklistCount}/${checklist.size} done)",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.secondary,
-                                    modifier = Modifier.padding(start = 24.dp, top = 2.dp)
-                                )
-                            }
-                        }
+            if (isHiddenByLock) {
+                Spacer(modifier = Modifier.height(12.dp))
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.Lock,
+                            contentDescription = "Locked",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = stringResource(R.string.note_locked_preview),
+                            style = MaterialTheme.typography.bodySmall,
+                            fontStyle = FontStyle.Italic,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
+                }
+            } else if (!compactMode) {
+                // Clean Body Paragraph Preview
+                if (note.content.isNotBlank()) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text(
+                        text = note.content,
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f),
+                        maxLines = 3,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
 
-                    // Voice Transcript Badge
-                    if (note.voiceTranscript.isNotBlank()) {
-                        Spacer(modifier = Modifier.height(10.dp))
-                        Surface(
-                            shape = RoundedCornerShape(10.dp),
-                            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
+                // Minimal Interactive Checklist Preview (up to 3 items)
+                val checklist = note.parsedChecklist
+                if (checklist.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        checklist.take(3).forEachIndexed { idx, item ->
                             Row(
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
-                                verticalAlignment = Alignment.CenterVertically
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .clickable { onToggleChecklistItem(idx) }
+                                    .padding(vertical = 2.dp)
                             ) {
                                 Icon(
-                                    imageVector = Icons.Outlined.GraphicEq,
-                                    contentDescription = "Voice memo",
-                                    tint = MaterialTheme.colorScheme.primary,
+                                    imageVector = if (item.isChecked) Icons.Filled.CheckCircle else Icons.Outlined.RadioButtonUnchecked,
+                                    contentDescription = if (item.isChecked) "Checked" else "Unchecked",
+                                    tint = if (item.isChecked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.size(16.dp)
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(
-                                    text = note.voiceTranscript,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurface,
+                                    text = item.text,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = if (item.isChecked) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                                    else MaterialTheme.colorScheme.onSurface,
+                                    textDecoration = if (item.isChecked) TextDecoration.LineThrough else TextDecoration.None,
                                     maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                    modifier = Modifier.weight(1f)
+                                    overflow = TextOverflow.Ellipsis
                                 )
-                                if (note.voiceDurationSec > 0L) {
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Text(
-                                        text = "${note.voiceDurationSec}s",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.primary
-                                    )
-                                }
                             }
                         }
                     }
                 }
+            }
 
-                // Bottom Footer: Tags, Checklist summary, Reminder badge, Word count
-                val hasFooterItems = note.tags.isNotEmpty() || note.reminderAtMillis > 0L || note.checklistItems.isNotEmpty()
-                if (hasFooterItems && !isHiddenByLock) {
-                    Spacer(modifier = Modifier.height(10.dp))
-                    FlowRow(
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        verticalArrangement = Arrangement.spacedBy(6.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        if (note.checklistItems.isNotEmpty() && compactMode) {
-                            Surface(
-                                shape = RoundedCornerShape(6.dp),
-                                color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.6f)
+            // Bottom Row: Outlined Minimal Tag Pills (matching reference image)
+            val hasFooterItems = note.tags.isNotEmpty() || note.reminderAtMillis > 0L
+            if (hasFooterItems && !isHiddenByLock) {
+                Spacer(modifier = Modifier.height(14.dp))
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    note.tags.take(4).forEach { tag ->
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(12.dp))
+                                .clickable { onTagClick(tag) }
+                        ) {
+                            Text(
+                                text = tag,
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 7.dp)
+                            )
+                        }
+                    }
+
+                    if (note.reminderAtMillis > 0L) {
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp)
                             ) {
-                                Text(
-                                    text = "✓ ${note.completedChecklistCount}/${note.checklistItems.size}",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSecondaryContainer,
-                                    modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
+                                Icon(
+                                    imageVector = Icons.Outlined.Alarm,
+                                    contentDescription = "Reminder",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(13.dp)
                                 )
-                            }
-                        }
-
-                        if (note.reminderAtMillis > 0L) {
-                            Surface(
-                                shape = RoundedCornerShape(6.dp),
-                                color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.7f)
-                            ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Outlined.Alarm,
-                                        contentDescription = "Reminder",
-                                        tint = MaterialTheme.colorScheme.tertiary,
-                                        modifier = Modifier.size(11.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Text(
-                                        text = formatReminderTime(note.reminderAtMillis),
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.onTertiaryContainer
-                                    )
-                                }
-                            }
-                        }
-
-                        note.tags.take(4).forEach { tag ->
-                            Surface(
-                                shape = RoundedCornerShape(6.dp),
-                                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.65f),
-                                modifier = Modifier.clickable { onTagClick(tag) }
-                            ) {
+                                Spacer(modifier = Modifier.width(5.dp))
                                 Text(
-                                    text = "#$tag",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
+                                    text = formatReminderTime(note.reminderAtMillis),
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.onSurface
                                 )
                             }
                         }
@@ -606,7 +493,6 @@ fun EditorialEmptyState(
     activeFilterLabel: String,
     onCreateBlankNote: () -> Unit,
     onCreateChecklistNote: () -> Unit,
-    onCreateVoiceNote: () -> Unit,
     onClearFilters: () -> Unit
 ) {
     Column(
@@ -620,11 +506,11 @@ fun EditorialEmptyState(
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
             modifier = Modifier
                 .fillMaxWidth(0.75f)
-                .height(170.dp)
+                .height(160.dp)
         ) {
             Image(
-                painter = painterResource(id = R.drawable.img_empty_notes),
-                contentDescription = "Open cream notebook illustration",
+                painter = painterResource(id = R.drawable.img_empty_notes_bw),
+                contentDescription = "Open monochrome notebook illustration",
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize()
             )
@@ -636,7 +522,7 @@ fun EditorialEmptyState(
             text = if (isSearchFiltered) {
                 stringResource(R.string.empty_search_title)
             } else {
-                "Quiet in $activeFilterLabel"
+                "No notes in $activeFilterLabel"
             },
             style = MaterialTheme.typography.headlineMedium,
             color = MaterialTheme.colorScheme.onBackground,
@@ -661,10 +547,10 @@ fun EditorialEmptyState(
         if (isSearchFiltered) {
             OutlinedButton(
                 onClick = onClearFilters,
-                shape = RoundedCornerShape(12.dp),
+                shape = RoundedCornerShape(14.dp),
                 modifier = Modifier.testTag("clear_filters_button")
             ) {
-                Text("Reset Search & Filters")
+                Text("Show All Notes")
             }
         } else {
             Row(
@@ -673,7 +559,7 @@ fun EditorialEmptyState(
             ) {
                 FilledTonalButton(
                     onClick = onCreateBlankNote,
-                    shape = RoundedCornerShape(12.dp),
+                    shape = RoundedCornerShape(14.dp),
                     modifier = Modifier.testTag("empty_state_new_note_button")
                 ) {
                     Icon(
@@ -683,14 +569,14 @@ fun EditorialEmptyState(
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = "Write",
+                        text = "New Note",
                         fontWeight = FontWeight.Medium
                     )
                 }
 
                 OutlinedButton(
                     onClick = onCreateChecklistNote,
-                    shape = RoundedCornerShape(12.dp),
+                    shape = RoundedCornerShape(14.dp),
                     modifier = Modifier.testTag("empty_state_checklist_button")
                 ) {
                     Icon(
@@ -700,20 +586,6 @@ fun EditorialEmptyState(
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text("Checklist")
-                }
-
-                OutlinedButton(
-                    onClick = onCreateVoiceNote,
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.testTag("empty_state_voice_button")
-                ) {
-                    Icon(
-                        imageVector = Icons.Outlined.MicNone,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text("Voice")
                 }
             }
         }

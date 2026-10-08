@@ -28,21 +28,15 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.Logout
 import androidx.compose.material.icons.automirrored.outlined.VolumeUp
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.outlined.Archive
 import androidx.compose.material.icons.outlined.CreateNewFolder
 import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.Edit
-import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material.icons.outlined.Lock
-import androidx.compose.material.icons.outlined.Mic
 import androidx.compose.material.icons.outlined.PlayArrow
-import androidx.compose.material.icons.outlined.VolumeUp
-import androidx.compose.material3.Button
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
@@ -59,7 +53,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.data.model.Folder
@@ -142,7 +135,7 @@ fun FoldersScreen(
                     val folderNotes = activeNotes.filter { it.folderId == folder.id }
                     val accentColor = resolveFolderAccentColor(folder.accentKey, isDark)
                     val latestTimestamp = folderNotes.maxOfOrNull {
-                        it.updatedAt?.seconds ?: it.createdAt?.seconds ?: 0L
+                        it.updatedAtMillis
                     }
 
                     Surface(
@@ -227,7 +220,7 @@ fun FoldersScreen(
                             if (latestTimestamp != null && latestTimestamp > 0L) {
                                 Spacer(modifier = Modifier.height(6.dp))
                                 Text(
-                                    text = "Updated ${formatEditorialTimestamp(folderNotes.firstOrNull()?.updatedAt)}",
+                                    text = "Updated ${formatEditorialTimestamp(latestTimestamp)}",
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -250,11 +243,9 @@ fun VoiceAndListenScreen(
     onChangeSpeechRate: (Float) -> Unit,
     onPlayNoteAloud: (Note) -> Unit,
     onStopAudio: () -> Unit,
-    onOpenNote: (Note) -> Unit,
-    onNewVoiceNoteClick: () -> Unit
+    onOpenNote: (Note) -> Unit
 ) {
     val listenableNotes = allNotes.filter { !it.isTrashed && (!it.isLocked || unlockedNoteIds.contains(it.id)) }
-    val voiceCapturedNotes = listenableNotes.filter { it.voiceTranscript.isNotBlank() }
     val currentlyPlayingNote = listenableNotes.firstOrNull { it.id == speakingNoteId }
 
     Box(
@@ -269,37 +260,17 @@ fun VoiceAndListenScreen(
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             item {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "Listen & Dictate",
-                            style = MaterialTheme.typography.headlineLarge,
-                            color = MaterialTheme.colorScheme.onBackground
-                        )
-                        Text(
-                            text = "Listen back to your writing aloud or capture spoken thoughts.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-
-                    Button(
-                        onClick = onNewVoiceNoteClick,
-                        shape = RoundedCornerShape(14.dp),
-                        modifier = Modifier.testTag("audio_screen_new_voice_note_button")
-                    ) {
-                        Icon(
-                            imageVector = Icons.Outlined.Mic,
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text("Dictate")
-                    }
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Text(
+                        text = "Listen Aloud",
+                        style = MaterialTheme.typography.headlineLarge,
+                        color = MaterialTheme.colorScheme.onBackground
+                    )
+                    Text(
+                        text = "Listen back to your notes hands-free with on-device speech synthesis.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             }
 
@@ -401,29 +372,6 @@ fun VoiceAndListenScreen(
                 }
             }
 
-            if (voiceCapturedNotes.isNotEmpty()) {
-                item {
-                    Text(
-                        text = "VOICE MEMOS & TRANSCRIPTS (${voiceCapturedNotes.size})",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.padding(top = 6.dp)
-                    )
-                }
-
-                items(voiceCapturedNotes, key = { "voice_${it.id}" }) { note ->
-                    AudioQueueNoteRow(
-                        note = note,
-                        isPlaying = isSpeaking && speakingNoteId == note.id,
-                        onPlayToggle = {
-                            if (isSpeaking && speakingNoteId == note.id) onStopAudio()
-                            else onPlayNoteAloud(note)
-                        },
-                        onClick = { onOpenNote(note) }
-                    )
-                }
-            }
-
             item {
                 Text(
                     text = "ALL NOTES READING QUEUE (${listenableNotes.size})",
@@ -500,10 +448,9 @@ private fun AudioQueueNoteRow(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-                val preview = note.voiceTranscript.ifBlank { note.content }
-                if (preview.isNotBlank()) {
+                if (note.content.isNotBlank()) {
                     Text(
-                        text = preview,
+                        text = note.content,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 2,
@@ -512,12 +459,7 @@ private fun AudioQueueNoteRow(
                 }
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = buildString {
-                        append("${note.wordCount} words • ~${note.readingTimeMinutes} min listen")
-                        if (note.voiceDurationSec > 0L) {
-                            append(" • ${note.voiceDurationSec}s dictated")
-                        }
-                    },
+                    text = "${note.wordCount} words • ~${note.readingTimeMinutes} min listen",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.primary
                 )
@@ -529,8 +471,8 @@ private fun AudioQueueNoteRow(
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun SettingsScreen(
-    userEmail: String?,
     preferences: UserPreferences,
+    totalNotesCount: Int,
     archivedCount: Int,
     trashedCount: Int,
     lockedCount: Int,
@@ -539,8 +481,7 @@ fun SettingsScreen(
     onSelectSortOrder: (NoteSortOrder) -> Unit,
     onChangeFontScale: (Float) -> Unit,
     onConfigurePasscodeClick: () -> Unit,
-    onOpenWorkspaceFilter: (NoteWorkspaceFilter) -> Unit,
-    onSignOutClick: () -> Unit
+    onOpenWorkspaceFilter: (NoteWorkspaceFilter) -> Unit
 ) {
     Box(
         modifier = Modifier.fillMaxSize(),
@@ -736,8 +677,8 @@ fun SettingsScreen(
 
             Spacer(modifier = Modifier.height(14.dp))
 
-            // Account & Cloud Sync
-            SettingsSectionCard(title = "CLOUD WORKSPACE ACCOUNT") {
+            // Offline On-Device Storage Section
+            SettingsSectionCard(title = "OFFLINE LOCAL DATABASE") {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -745,29 +686,15 @@ fun SettingsScreen(
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = userEmail ?: "Signed in with Google",
+                            text = "100% On-Device SQLite Storage",
                             style = MaterialTheme.typography.titleSmall,
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
-                            text = "Real-time Firestore sync enabled",
+                            text = "$totalNotesCount notes stored privately on this device • Zero cloud or account required",
                             style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.secondary
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                    }
-
-                    OutlinedButton(
-                        onClick = onSignOutClick,
-                        shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier.testTag("sign_out_button")
-                    ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Outlined.Logout,
-                            contentDescription = null,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text("Sign Out")
                     }
                 }
             }

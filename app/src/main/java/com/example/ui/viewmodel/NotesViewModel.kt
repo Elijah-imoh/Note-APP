@@ -14,7 +14,6 @@ import com.example.data.preferences.ThemeMode
 import com.example.data.preferences.UserPreferences
 import com.example.data.preferences.UserPreferencesRepository
 import com.example.data.repository.NoteRepository
-import com.google.firebase.Timestamp
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -24,6 +23,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.util.Calendar
 
 sealed interface UiState<out T> {
     data object Loading : UiState<Nothing>
@@ -36,13 +36,14 @@ data class WorkspaceFilterState(
     val selectedFolderId: String? = null,
     val selectedTag: String? = null,
     val searchQuery: String = "",
-    val isSearchActive: Boolean = false
+    val isSearchActive: Boolean = false,
+    val monthOffset: Int = 0,
+    val filterByMonth: Boolean = false
 )
 
 class NotesViewModel(
     private val repository: NoteRepository,
-    private val preferencesRepository: UserPreferencesRepository,
-    val currentUserId: String
+    private val preferencesRepository: UserPreferencesRepository
 ) : ViewModel() {
 
     private val _filterState = MutableStateFlow(WorkspaceFilterState())
@@ -64,11 +65,10 @@ class NotesViewModel(
             initialValue = UserPreferences()
         )
 
-    // Two-tier Flow error handling per Firebase Firestore Android skill
-    val notesState: StateFlow<UiState<List<Note>>> = repository.observeNotes(currentUserId)
+    val notesState: StateFlow<UiState<List<Note>>> = repository.observeNotes()
         .map<List<Note>, UiState<List<Note>>> { UiState.Success(it) }
         .catch { error ->
-            Log.w(TAG, "Error observing notes", error)
+            Log.w(TAG, "Error observing local notes", error)
             emit(UiState.Error(error.message ?: "Unable to load notes"))
         }
         .stateIn(
@@ -77,10 +77,10 @@ class NotesViewModel(
             initialValue = UiState.Loading
         )
 
-    val foldersState: StateFlow<UiState<List<Folder>>> = repository.observeFolders(currentUserId)
+    val foldersState: StateFlow<UiState<List<Folder>>> = repository.observeFolders()
         .map<List<Folder>, UiState<List<Folder>>> { UiState.Success(it) }
         .catch { error ->
-            Log.w(TAG, "Error observing folders", error)
+            Log.w(TAG, "Error observing local folders", error)
             emit(UiState.Error(error.message ?: "Unable to load folders"))
         }
         .stateIn(
@@ -132,7 +132,6 @@ class NotesViewModel(
                 NoteWorkspaceFilter.ALL -> !note.isTrashed && !note.isArchived
                 NoteWorkspaceFilter.PINNED -> !note.isTrashed && !note.isArchived && note.isPinned
                 NoteWorkspaceFilter.CHECKLISTS -> !note.isTrashed && !note.isArchived && note.checklistItems.isNotEmpty()
-                NoteWorkspaceFilter.VOICE -> !note.isTrashed && !note.isArchived && note.voiceTranscript.isNotBlank()
                 NoteWorkspaceFilter.REMINDERS -> !note.isTrashed && !note.isArchived && note.reminderAtMillis > 0L
                 NoteWorkspaceFilter.PROTECTED -> !note.isTrashed && !note.isArchived && note.isLocked
                 NoteWorkspaceFilter.ARCHIVED -> !note.isTrashed && note.isArchived
@@ -151,6 +150,19 @@ class NotesViewModel(
                 true
             }
         }.filter { note ->
+            if (!filter.filterByMonth) {
+                true
+            } else {
+                val targetCal = Calendar.getInstance().apply {
+                    add(Calendar.MONTH, filter.monthOffset)
+                }
+                val noteCal = Calendar.getInstance().apply {
+                    timeInMillis = note.updatedAtMillis
+                }
+                targetCal.get(Calendar.YEAR) == noteCal.get(Calendar.YEAR) &&
+                    targetCal.get(Calendar.MONTH) == noteCal.get(Calendar.MONTH)
+            }
+        }.filter { note ->
             val q = filter.searchQuery.trim()
             if (q.isEmpty()) {
                 true
@@ -158,7 +170,6 @@ class NotesViewModel(
                 val cleanTagQuery = q.removePrefix("#")
                 note.title.contains(q, ignoreCase = true) ||
                     (!note.isLocked && note.content.contains(q, ignoreCase = true)) ||
-                    (!note.isLocked && note.voiceTranscript.contains(q, ignoreCase = true)) ||
                     (!note.isLocked && note.checklistItems.any { it.contains(q, ignoreCase = true) }) ||
                     note.tags.any { it.contains(cleanTagQuery, ignoreCase = true) }
             }
@@ -166,15 +177,31 @@ class NotesViewModel(
 
         val comparator = when (sortOrder) {
             NoteSortOrder.UPDATED_DESC -> compareByDescending<Note> { it.isPinned }
-                .thenByDescending { it.updatedAt ?: it.createdAt ?: Timestamp(0, 0) }
+                .thenByDescending { it.updatedAtMillis }
             NoteSortOrder.CREATED_DESC -> compareByDescending<Note> { it.isPinned }
-                .thenByDescending { it.createdAt ?: it.updatedAt ?: Timestamp(0, 0) }
+                .thenByDescending { it.createdAtMillis }
             NoteSortOrder.TITLE_ASC -> compareByDescending<Note> { it.isPinned }
                 .thenBy { it.title.lowercase().ifBlank { "zzzz" } }
             NoteSortOrder.WORD_COUNT_DESC -> compareByDescending<Note> { it.isPinned }
                 .thenByDescending { it.wordCount }
         }
         return baseFiltered.sortedWith(comparator)
+    }
+
+    fun stepMonth(delta: Int) {
+        val current = _filterState.value
+        val nextOffset = current.monthOffset + delta
+        _filterState.value = current.copy(
+            monthOffset = nextOffset,
+            filterByMonth = nextOffset != 0
+        )
+    }
+
+    fun resetMonthFilter() {
+        _filterState.value = _filterState.value.copy(
+            monthOffset = 0,
+            filterByMonth = false
+        )
     }
 
     fun selectWorkspaceFilter(workspaceFilter: NoteWorkspaceFilter) {
@@ -204,13 +231,6 @@ class NotesViewModel(
         _filterState.value = _filterState.value.copy(searchQuery = query)
     }
 
-    fun setSearchActive(active: Boolean) {
-        _filterState.value = _filterState.value.copy(
-            isSearchActive = active,
-            searchQuery = if (!active) "" else _filterState.value.searchQuery
-        )
-    }
-
     fun clearAllFilters() {
         _filterState.value = WorkspaceFilterState()
     }
@@ -234,8 +254,6 @@ class NotesViewModel(
         isArchived: Boolean,
         isLocked: Boolean,
         colorKey: String,
-        voiceTranscript: String,
-        voiceDurationSec: Long,
         reminderAtMillis: Long,
         onSaved: (String) -> Unit = {}
     ) {
@@ -246,7 +264,6 @@ class NotesViewModel(
 
             if (existingNote == null || existingNote.id.isBlank()) {
                 val newNote = Note(
-                    userId = currentUserId,
                     title = title.trim(),
                     content = content.trim(),
                     folderId = folderId,
@@ -257,8 +274,6 @@ class NotesViewModel(
                     isTrashed = false,
                     isLocked = isLocked,
                     colorKey = colorKey,
-                    voiceTranscript = voiceTranscript.trim(),
-                    voiceDurationSec = voiceDurationSec,
                     reminderAtMillis = reminderAtMillis
                 )
                 val result = repository.createNote(newNote)
@@ -279,8 +294,6 @@ class NotesViewModel(
                     isArchived = isArchived,
                     isLocked = isLocked,
                     colorKey = colorKey,
-                    voiceTranscript = voiceTranscript.trim(),
-                    voiceDurationSec = voiceDurationSec,
                     reminderAtMillis = reminderAtMillis
                 )
                 val result = repository.updateNote(updated)
@@ -408,10 +421,8 @@ class NotesViewModel(
     }
 
     fun emptyTrash() {
-        val notes = (notesState.value as? UiState.Success)?.data ?: return
-        val trashed = notes.filter { it.isTrashed }
         viewModelScope.launch {
-            trashed.forEach { repository.deleteNotePermanently(it.id) }
+            repository.emptyTrash()
             _statusBannerMessage.value = "Trash emptied"
         }
     }
@@ -421,7 +432,6 @@ class NotesViewModel(
             val currentFolders = (foldersState.value as? UiState.Success)?.data ?: emptyList()
             if (existingFolder == null) {
                 val folder = Folder(
-                    userId = currentUserId,
                     name = name.trim(),
                     iconKey = iconKey,
                     accentKey = accentKey,
@@ -444,10 +454,6 @@ class NotesViewModel(
 
     fun deleteFolder(folder: Folder) {
         viewModelScope.launch {
-            val allNotes = (notesState.value as? UiState.Success)?.data ?: emptyList()
-            allNotes.filter { it.folderId == folder.id }.forEach { note ->
-                repository.updateNote(note.copy(folderId = ""))
-            }
             repository.deleteFolder(folder.id)
             if (_filterState.value.selectedFolderId == folder.id) {
                 _filterState.value = _filterState.value.copy(selectedFolderId = null)

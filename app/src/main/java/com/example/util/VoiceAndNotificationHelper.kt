@@ -4,13 +4,9 @@ import android.Manifest
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
-import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
-import android.speech.RecognitionListener
-import android.speech.RecognizerIntent
-import android.speech.SpeechRecognizer
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
 import androidx.core.app.NotificationCompat
@@ -86,97 +82,6 @@ class NoteTextToSpeechManager(context: Context) {
         tts?.stop()
         tts?.shutdown()
         tts = null
-    }
-}
-
-class VoiceDictationHelper(
-    private val context: Context,
-    private val onPartialResult: (String) -> Unit,
-    private val onFinalResult: (String) -> Unit,
-    private val onError: (String) -> Unit,
-    private val onListeningStateChanged: (Boolean) -> Unit
-) {
-    private var speechRecognizer: SpeechRecognizer? = null
-
-    fun startListening() {
-        if (!SpeechRecognizer.isRecognitionAvailable(context)) {
-            onError("Speech recognition service is not available on this device. You can still type or paste a voice transcript below.")
-            onListeningStateChanged(false)
-            return
-        }
-        try {
-            speechRecognizer?.destroy()
-            speechRecognizer = SpeechRecognizer.createSpeechRecognizer(context).apply {
-                setRecognitionListener(object : RecognitionListener {
-                    override fun onReadyForSpeech(params: Bundle?) {
-                        onListeningStateChanged(true)
-                    }
-
-                    override fun onBeginningOfSpeech() {}
-                    override fun onRmsChanged(rmsdB: Float) {}
-                    override fun onBufferReceived(buffer: ByteArray?) {}
-                    override fun onEndOfSpeech() {
-                        onListeningStateChanged(false)
-                    }
-
-                    override fun onError(error: Int) {
-                        onListeningStateChanged(false)
-                        val msg = when (error) {
-                            SpeechRecognizer.ERROR_NO_MATCH -> "No speech detected. Tap the microphone to try again."
-                            SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> "Listening timed out."
-                            SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> "Microphone permission is required for voice dictation."
-                            else -> "Voice dictation paused (code $error)."
-                        }
-                        onError(msg)
-                    }
-
-                    override fun onResults(results: Bundle?) {
-                        onListeningStateChanged(false)
-                        val matches = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
-                        val text = matches?.firstOrNull().orEmpty()
-                        if (text.isNotBlank()) {
-                            onFinalResult(text)
-                        }
-                    }
-
-                    override fun onPartialResults(partialResults: Bundle?) {
-                        val matches = partialResults?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
-                        val text = matches?.firstOrNull().orEmpty()
-                        if (text.isNotBlank()) {
-                            onPartialResult(text)
-                        }
-                    }
-
-                    override fun onEvent(eventType: Int, params: Bundle?) {}
-                })
-            }
-
-            val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-                putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-                putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
-                putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault())
-            }
-            speechRecognizer?.startListening(intent)
-        } catch (e: Exception) {
-            onListeningStateChanged(false)
-            onError(e.localizedMessage ?: "Unable to start speech recognizer")
-        }
-    }
-
-    fun stopListening() {
-        try {
-            speechRecognizer?.stopListening()
-        } catch (_: Exception) {
-        }
-        onListeningStateChanged(false)
-    }
-
-    fun destroy() {
-        try {
-            speechRecognizer?.destroy()
-        } catch (_: Exception) {
-        }
-        speechRecognizer = null
     }
 }
 
